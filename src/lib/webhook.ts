@@ -1,6 +1,9 @@
 import { prisma } from "./prisma";
 import crypto from "crypto";
-import { normalizeMessageContent } from "@whiskeysockets/baileys";
+import { normalizeMessageContent, downloadMediaMessage, WAMessage } from "@whiskeysockets/baileys";
+import { writeFile, mkdir } from "fs/promises";
+import path from "path";
+import pino from "pino";
 
 // Event types that can trigger webhooks
 export type WebhookEventType = 
@@ -140,42 +143,145 @@ async function sendWebhookRequest(url: string, payload: WebhookPayload, secret?:
 }
 
 /**
+ * Helper to download and save media
+ */
+async function downloadAndSaveMedia(message: WAMessage, sessionId: string): Promise<string | null> {
+    try {
+        const messageContent = normalizeMessageContent(message.message);
+        if (!messageContent) return null;
+
+        const messageType = Object.keys(messageContent)[0];
+        if (!['imageMessage', 'videoMessage', 'audioMessage', 'documentMessage', 'stickerMessage'].includes(messageType)) {
+            return null;
+        }
+
+        const buffer = await downloadMediaMessage(
+            message,
+            "buffer",
+            {},
+            { 
+               logger: pino({ level: "silent" }) as any,
+               reuploadRequest: (msg) => new Promise((resolve) => resolve(msg)) 
+            }
+        ) as Buffer;
+
+        if (!buffer) return null;
+
+        // Generate filename
+        const extMap: Record<string, string> = {
+            imageMessage: 'jpg',
+            videoMessage: 'mp4',
+            audioMessage: 'mp3',
+            documentMessage: 'bin',
+            stickerMessage: 'webp'
+        };
+        
+        let ext = extMap[messageType] || 'bin';
+        
+        // Try to get extension from mimetype if available
+        const mime = (messageContent as any)[messageType]?.mimetype;
+        if (mime) {
+            const mimeExt = mime.split('/')[1]?.split(';')[0];
+            if (mimeExt) ext = mimeExt;
+        }
+
+        const filename = `${sessionId}-${message.key.id}.${ext}`;
+        const filePath = path.join(process.cwd(), "public", "media", filename);
+
+        // Ensure directory exists (redundant if handled by OS, but safe)
+        await mkdir(path.dirname(filePath), { recursive: true });
+        
+        await writeFile(filePath, buffer);
+        
+        // Return URL path (assuming served from /media)
+        // In a real app you might want full URL, but relative is safer for now.
+        // User requested URL.
+        return `/media/${filename}`;
+
+    } catch (e) {
+        console.error("Failed to download media:", e);
+        return null;
+    }
+}
+
+/**
  * Helper to dispatch message received event
  * Normalizes message content to match API structure
  */
-export function onMessageReceived(sessionId: string, message: any) {
-    const normalized = extractMessageContent(message);
+export async function onMessageReceived(sessionId: string, message: any) {
+    // Re-calculate fields to match store logic EXACTLY
     const remoteJid = message.key?.remoteJid || "";
+    const fromMe = message.key?.fromMe || false;
+    const isGroup = remoteJid.endsWith("@g.us");
+    const participant = isGroup ? (message.key?.participant || message.participant) : undefined;
+    
+    // "from" is usually the chat JID (remoteJid)
+    // "sender" is who sent it. In DM: remoteJid. In Group: participant.
+    const sender = isGroup ? participant : remoteJid;
+
+    // Download media if available
+    let fileUrl: string | null = null;
+    try {
+        fileUrl = await downloadAndSaveMedia(message, sessionId);
+    } catch (e) {
+         console.error("Error handling media download", e);
+    }
+
+    const normalized = extractMessageContent(message);
     
     dispatchWebhook(sessionId, "message.received", {
-        keyId: message.key?.id,
-        remoteJid: remoteJid,
-        chatType: getChatType(remoteJid),
-        fromMe: message.key?.fromMe || false,
+        key: {
+            id: message.key?.id,
+            remoteJid: remoteJid,
+            fromMe: fromMe,
+            participant: participant
+        },
         pushName: message.pushName,
+        messageTimestamp: message.messageTimestamp,
+        
+        // Simplified Fields
+        from: remoteJid,            // Chat ID
+        sender: sender,             // Who Sent It
+        isGroup: isGroup,           // Boolean
+        
+        // Message Content
         type: normalized.type,
         content: normalized.content,
-        timestamp: message.messageTimestamp 
-            ? Number(message.messageTimestamp) * 1000 
-            : Date.now()
+        fileUrl: fileUrl,           // Link to file if media
+        caption: normalized.caption, // Separate caption
+        
+        // Raw Data (Requested by User)
+        raw: message
     });
 }
 
 /**
  * Helper to dispatch message sent event
  */
-export function onMessageSent(sessionId: string, message: any) {
+export async function onMessageSent(sessionId: string, message: any) {
     const normalized = extractMessageContent(message);
     const remoteJid = message.key?.remoteJid || "";
+    
+    // Download media for sent messages too (optional but good)
+    let fileUrl: string | null = null;
+    try {
+        fileUrl = await downloadAndSaveMedia(message, sessionId);
+    } catch (e) { /* ignore */ }
 
     dispatchWebhook(sessionId, "message.sent", {
-        keyId: message.key?.id,
-        remoteJid: remoteJid,
-        chatType: getChatType(remoteJid),
-        fromMe: true,
+        key: message.key,
+        
+        from: remoteJid,
+        sender: message.key?.participant || (message.key?.fromMe ? "ME" : remoteJid),
+        isGroup: remoteJid.endsWith("@g.us"),
+        
         type: normalized.type,
         content: normalized.content,
-        timestamp: Date.now() // Sent now
+        fileUrl: fileUrl,
+        caption: normalized.caption,
+        
+        timestamp: Date.now(),
+        raw: message
     });
 }
 
@@ -197,16 +303,17 @@ function getChatType(jid: string): "PERSONAL" | "GROUP" | "STATUS" | "NEWSLETTER
 export function onConnectionUpdate(sessionId: string, status: string, qr?: string) {
     dispatchWebhook(sessionId, "connection.update", {
         status,
-        qr: qr ? "QR_GENERATED" : null // Don't send actual QR, just indicator
+        qr: qr || null
     });
 }
 
 /**
  * Extract content and type from Baileys message
  */
-function extractMessageContent(msg: any): { type: string, content: string } {
+function extractMessageContent(msg: any): { type: string, content: string, caption?: string } {
     const messageContent = normalizeMessageContent(msg.message);
     let text = "";
+    let caption = undefined;
     let messageType = "TEXT";
 
     if (!messageContent) return { type: "UNKNOWN", content: "" };
@@ -217,15 +324,18 @@ function extractMessageContent(msg: any): { type: string, content: string } {
         text = messageContent.extendedTextMessage.text;
     } else if (messageContent.imageMessage) {
         messageType = "IMAGE";
-        text = messageContent.imageMessage.caption || "";
+        caption = messageContent.imageMessage.caption || "";
+        text = caption; // Content often used as text display
     } else if (messageContent.videoMessage) {
         messageType = "VIDEO";
-        text = messageContent.videoMessage.caption || "";
+        caption = messageContent.videoMessage.caption || "";
+        text = caption;
     } else if (messageContent.audioMessage) {
         messageType = "AUDIO";
     } else if (messageContent.documentMessage) {
         messageType = "DOCUMENT";
         text = messageContent.documentMessage.fileName || "";
+        caption = messageContent.documentMessage.caption || "";
     } else if (messageContent.stickerMessage) {
         messageType = "STICKER";
     } else if (messageContent.locationMessage) {
@@ -236,5 +346,6 @@ function extractMessageContent(msg: any): { type: string, content: string } {
         text = messageContent.contactMessage.displayName || "";
     }
 
-    return { type: messageType, content: text };
+    return { type: messageType, content: text, caption };
 }
+
