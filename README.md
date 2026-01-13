@@ -67,7 +67,7 @@ cp .env.example .env
 ```
 Update `.env` with your Database URL and Auth Secret:
 ```env
-DATABASE_URL="postgresql://user:pass@localhost:5432/wa_gateway_db"
+DATABASE_URL="mysql://user:pass@localhost:5432/wa_gateway_db"
 AUTH_SECRET="generate-a-strong-secret-here"
 ```
 
