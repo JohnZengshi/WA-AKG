@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased] - 2024-01-13
+## [Unreleased] - 2026-01-13
 
 ### Fixed
 - **API `POST /api/sessions`**: Fixed issue where custom `sessionId` provided in request body was ignored. Now accepts `sessionId` correctly.
@@ -10,6 +10,7 @@
 - **Frontend Webhooks Page**: Fixed page to respect the currently selected session in the navbar. Webhook list is now filtered by session, and creating a webhook attaches it to the active session.
 
 ### Added
+- **Auto Update Check**: Implemented automatic update checking when entering the dashboard. A specific notification is created only if a new version is available.
 - **Logging Configuration**: Added `BAILEYS_LOG_LEVEL` support in `.env` to configure WhatsApp Baileys logger verbosity (default: `error`).
 - **Scripts**: Added `scripts/test_endpoints.sh` for verifying API endpoints via curl.
 
