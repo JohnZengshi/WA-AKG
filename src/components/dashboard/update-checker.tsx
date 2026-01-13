@@ -3,11 +3,8 @@
 import { useEffect } from "react";
 
 export function UpdateChecker() {
-    console.log("ANJAYYY")
     useEffect(() => {
-        console.log("UpdateChecker: Component mounted");
         const checkUpdates = async () => {
-            console.log("UpdateChecker: Starting fetch...");
             try {
                 // Determine if we should check. Maybe check localStorage to avoid spamming every reload?
                 // User said "setiap kali ada yang masuk dashboard", implying every time or session start.
