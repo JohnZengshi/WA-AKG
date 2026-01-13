@@ -242,6 +242,7 @@ export async function onMessageReceived(sessionId: string, message: any) {
         // Simplified Fields
         from: remoteJid,            // Chat ID
         sender: sender,             // Who Sent It
+        remoteJidAlt: sender,       // Alias for sender (User Request)
         isGroup: isGroup,           // Boolean
         
         // Message Content
@@ -267,12 +268,18 @@ export async function onMessageSent(sessionId: string, message: any) {
     try {
         fileUrl = await downloadAndSaveMedia(message, sessionId);
     } catch (e) { /* ignore */ }
+    
+    // For sent messages, sender is always ME (or represented by the bot)
+    // If it's a group, the participant might be undefined in the key if sent by us, 
+    // but typically we are the sender.
+    const sender = message.key?.participant || (message.key?.fromMe ? "ME" : remoteJid);
 
     dispatchWebhook(sessionId, "message.sent", {
         key: message.key,
         
         from: remoteJid,
-        sender: message.key?.participant || (message.key?.fromMe ? "ME" : remoteJid),
+        sender: sender,
+        remoteJidAlt: sender, // Alias for sender
         isGroup: remoteJid.endsWith("@g.us"),
         
         type: normalized.type,
