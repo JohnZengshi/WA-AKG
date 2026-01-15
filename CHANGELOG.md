@@ -13,6 +13,20 @@
 - **Webhook Syntax**: Resolved a critical syntax error (duplicate code block) in `src/lib/webhook.ts` that caused build failures.
 - **Robustness**: Improved `extractQuotedMessage` helper to handle various message types (Group, Private) accurately.
 
+## [beta-v1.1.0.1] - 2026-01-15
+
+### Added
+- **Contact Management**: 
+    - **Contact List Page**: New Dashboard page (`/dashboard/contacts`) to view, filter, and manage synced contacts.
+    - **Features**: Search by Name/JID, Session Filtering, and Configurable Pagination Limits (5 to 3000 items per page).
+    - **Database**: Enhanced `Contact` model to store `lid`, `verifiedName`, `remoteJidAlt`, `profilePic`, and raw `data`.
+- **UI Enhancements**:
+    - **Version Display**: Updated Sidebar and Mobile Navigation to display the full version string (e.g., `Version: beta-v1.1.0.1`).
+
+### Fixed
+- **Build Stability**: Resolved improper UI module imports (`Table`, `Pagination`) and missing type overrides for Prisma schema changes.
+- **Backend Logic**: Fixed duplicate imports in dashboard pages.
+
 ## [1.1.0] - 2026-01-13
 
 ### Added

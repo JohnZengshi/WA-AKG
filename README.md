@@ -83,6 +83,7 @@ Turn your WhatsApp into a programmable API. Whether you need a simple **WhatsApp
   ```
   </details>
 - **👥 Group Management**: Fetch groups, manage participants, and send announcements effortlessly.
+- **📇 Contact Management**: View, search, and manage synced contacts with rich details (LID, Verified Name, Profile Pic).
 - **🎨 Sticker Maker**: Convert images to stickers securely; supports removing backgrounds via API.
 - **🔒 Role-Based Access**: Granular control with `Owner` (Superadmin) and `User` roles.
 - **🌐 RESTful API**: Comprehensive endpoints for programmatic control.

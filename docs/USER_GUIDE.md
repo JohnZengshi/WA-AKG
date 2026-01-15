@@ -10,6 +10,7 @@ Welcome to the **WA-AKG** User Guide. This document provides step-by-step instru
 5.  [Auto-Replies](#5-auto-replies)
 6.  [Broadcasts](#6-broadcasts)
 7.  [Sticker Maker](#7-sticker-maker)
+8.  [Contact Management](#8-contact-management)
 
 ---
 
