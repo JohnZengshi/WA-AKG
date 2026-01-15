@@ -209,7 +209,7 @@ export async function handleBotCommand(
                         try {
                            // Use limitInputPixels: false to handle large images
                            buffer = await sharp(buffer, { limitInputPixels: false })
-                                .resize(800, 800, {
+                                .resize(512, 512, { // Resize to standard 512x512 sticker size directly
                                     fit: 'inside',
                                     withoutEnlargement: true
                                 })
@@ -225,8 +225,8 @@ export async function handleBotCommand(
                             await fs.writeFile(tempInput, buffer);
                             
                             // Compress Video using ffmpeg
-                            // Scale to 512px max width/height, 15fps for stickers
-                            await execAsync(`ffmpeg -y -i "${tempInput}" -vf "scale=512:512:force_original_aspect_ratio=decrease,fps=15" -c:v libx264 -crf 32 -an "${tempOutput}"`);
+                            // Scale to 512px, 12fps (lower fps = smaller size for webp), High CRF (35) for compression
+                            await execAsync(`ffmpeg -y -i "${tempInput}" -vf "scale=512:512:force_original_aspect_ratio=decrease,fps=12" -c:v libx264 -preset veryfast -crf 35 -an "${tempOutput}"`);
                             
                             buffer = await fs.readFile(tempOutput);
                             
@@ -281,7 +281,7 @@ export async function handleBotCommand(
                         pack: (config as any).botName || "WA-AKG Bot",
                         author: "By " + ((config as any).botName || "WA-AKG Bot"),
                         type: "full", // full, crop, circle
-                        quality: 50
+                        quality: 40 // Reduce quality for smaller size
                     });
 
                     const stickerBuffer = await sticker.toBuffer();
