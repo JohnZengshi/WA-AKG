@@ -76,8 +76,11 @@ model Contact {
   id          String   @id @default(cuid())
   sessionId   String
   jid         String   // remoteJid (123456@s.whatsapp.net)
+  lid         String?  // LID JID
   name        String?
   notify      String?  // Pushname
+  verifiedName String? // Business Name
+  remoteJidAlt String? // Alternate JID (e.g. Phone if JID is LID)
   profilePic  String?  @db.Text
   data        Json?    // Detailed contact data
   createdAt   DateTime @default(now())

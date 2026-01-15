@@ -102,12 +102,20 @@ export const bindSessionStore = (sock: WASocket, sessionId: string, _unused: str
                     create: {
                         sessionId: dbSessionId,
                         jid: c.id,
-                        name: c.name || c.notify,
-                        notify: c.notify
+                        lid: c.lid || undefined,
+                        name: c.name || c.notify || c.verifiedName,
+                        notify: c.notify,
+                        verifiedName: c.verifiedName,
+                        profilePic: c.imgUrl || undefined,
+                        data: c as any
                     },
                     update: {
+                        lid: c.lid || undefined,
                         name: c.name || undefined,
-                        notify: c.notify || undefined
+                        notify: c.notify || undefined,
+                        verifiedName: c.verifiedName || undefined,
+                        profilePic: c.imgUrl || undefined,
+                        data: c as any
                     }
                 });
                 
@@ -262,12 +270,14 @@ async function processAndSaveMessage(msg: WAMessage, dbSessionId: string, sessio
                 sessionId: dbSessionId,
                 jid: remoteJid,
                 notify: !fromMe ? pushName : undefined,
-                name: !fromMe ? pushName : undefined
+                name: !fromMe ? pushName : undefined,
+                remoteJidAlt: remoteJidAlt || undefined
             },
             update: !fromMe ? {
                 notify: pushName,
                 // Only update name if it was null? Or always? Let's just update notify usually.
                 // But Baileys often sends name in pushName.
+                remoteJidAlt: remoteJidAlt || undefined // Update Alt JID if we see it
             } : {}
         });
     }

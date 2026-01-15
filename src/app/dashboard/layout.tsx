@@ -120,7 +120,7 @@ export default async function DashboardLayout({
                             </Button>
                         </form>
                         <div className="mt-4 text-center">
-                            <span className="text-xs text-gray-400 font-mono">v{pkg.version}</span>
+                            <span className="text-xs text-gray-400 font-mono">Version: {pkg.version}</span>
                         </div>
                     </div>
                 </aside>

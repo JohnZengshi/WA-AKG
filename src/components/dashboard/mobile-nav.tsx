@@ -100,7 +100,7 @@ export function MobileNav({ appName = "WA-AKG" }: { appName?: string }) {
                         <LogOut size={16} /> Logout
                     </Button>
                     <div className="mt-4 text-center">
-                        <span className="text-xs text-gray-400 font-mono">v{pkg.version}</span>
+                        <span className="text-xs text-gray-400 font-mono">Version: {pkg.version}</span>
                     </div>
                 </div>
             </SheetContent>
