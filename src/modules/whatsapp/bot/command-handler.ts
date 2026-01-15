@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import type { WASocket, WAMessage } from "@whiskeysockets/baileys";
 import { downloadMediaMessage } from "@whiskeysockets/baileys";
 import Sticker from "wa-sticker-formatter"; 
+import sharp from "sharp"; 
 
 // Map to track start times for uptime
 const startTimes = new Map<string, number>();
@@ -161,6 +162,11 @@ export async function handleBotCommand(
                     return;
                 }
 
+                if (msgContent?.extendedTextMessage) {
+                    await sock.sendMessage(remoteJid, { text: "❌ Cannot convert text message to sticker." }, { quoted: msg });
+                    return;
+                }
+
                 // Handle Video Limits
                 if (isVideo) {
                     if (!(config as any).enableVideoSticker) {
@@ -184,8 +190,26 @@ export async function handleBotCommand(
                     let buffer = await downloadMediaMessage(
                         mediaMsg,
                         "buffer",
-                        {}
+                        {},
+                        { 
+                            logger: console as any,
+                            reuploadRequest: sock.updateMediaMessage
+                        }
                     ) as Buffer;
+
+                    // Resize Image if needed (prevent pixel limit error)
+                    if (isImage) {
+                        try {
+                           buffer = await sharp(buffer)
+                                .resize(800, 800, {
+                                    fit: 'inside',
+                                    withoutEnlargement: true
+                                })
+                                .toBuffer();
+                        } catch (resizeErr) {
+                            console.error("Resize failed", resizeErr);
+                        }
+                    }
                     
                     // Check for background removal (Only for Images)
                     const isRemoveBg = args.includes("nobg") || args.includes("removebg");
