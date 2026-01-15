@@ -22,6 +22,8 @@ interface BotConfig {
     autoReplyMode: 'ALL' | 'OWNER' | 'SPECIFIC';
     autoReplyAllowedJids: string[];
     enableSticker: boolean;
+    enableVideoSticker: boolean;
+    maxStickerDuration: number;
     enablePing: boolean;
     enableUptime: boolean;
     removeBgApiKey: string | null;
@@ -37,6 +39,8 @@ export default function BotSettingsPage() {
         autoReplyMode: 'ALL',
         autoReplyAllowedJids: [],
         enableSticker: true,
+        enableVideoSticker: true,
+        maxStickerDuration: 10,
         enablePing: true,
         enableUptime: true,
         removeBgApiKey: ""
@@ -68,6 +72,8 @@ export default function BotSettingsPage() {
                     autoReplyMode: data.autoReplyMode || 'ALL',
                     botAllowedJids: Array.isArray(data.botAllowedJids) ? data.botAllowedJids : [],
                     autoReplyAllowedJids: Array.isArray(data.autoReplyAllowedJids) ? data.autoReplyAllowedJids : [],
+                    enableVideoSticker: data.enableVideoSticker !== undefined ? data.enableVideoSticker : true,
+                    maxStickerDuration: data.maxStickerDuration || 10,
                     removeBgApiKey: data.removeBgApiKey || ""
                 });
                 // Init text areas
@@ -284,6 +290,34 @@ export default function BotSettingsPage() {
                                         checked={config.enableSticker}
                                         onCheckedChange={(checked) => setConfig(prev => ({ ...prev, enableSticker: checked }))}
                                     />
+                                </div>
+
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <Label className="flex items-center gap-2">
+                                            <ImageIcon className="h-4 w-4" /> Enable Video/GIF
+                                        </Label>
+                                        <Switch
+                                            checked={config.enableVideoSticker}
+                                            onCheckedChange={(checked) => setConfig(prev => ({ ...prev, enableVideoSticker: checked }))}
+                                            disabled={!config.enableSticker}
+                                        />
+                                    </div>
+                                    {config.enableVideoSticker && (
+                                        <div className="flex items-center gap-4">
+                                            <Label className="text-xs text-muted-foreground whitespace-nowrap">
+                                                Max Duration (s)
+                                            </Label>
+                                            <Input
+                                                type="number"
+                                                min={1}
+                                                max={60}
+                                                className="h-8 w-20"
+                                                value={config.maxStickerDuration}
+                                                onChange={(e) => setConfig(prev => ({ ...prev, maxStickerDuration: parseInt(e.target.value) || 10 }))}
+                                            />
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="flex items-center justify-between md:block md:space-y-2">

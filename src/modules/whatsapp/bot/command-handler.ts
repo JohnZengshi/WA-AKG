@@ -15,6 +15,8 @@ const DEFAULT_CONFIG = {
     autoReplyMode: 'ALL',
     autoReplyAllowedJids: [] as string[],
     enableSticker: true,
+    enableVideoSticker: true,
+    maxStickerDuration: 10,
     enablePing: true,
     enableUptime: true,
     botName: "WA-AKG Bot",
@@ -135,7 +137,7 @@ export async function handleBotCommand(
             case "stiker": {
                 if (!config.enableSticker) return;
 
-                // Check if message has image
+                    // Check if message has image or video
                 let mediaMsg: WAMessage | null = msg;
                 
                 // If quoted, check quoted
@@ -150,12 +152,29 @@ export async function handleBotCommand(
                     } as WAMessage;
                 }
 
-                // Verify it is an image
-                const isImage = !!mediaMsg.message?.imageMessage;
+                const msgContent = mediaMsg.message;
+                const isImage = !!msgContent?.imageMessage;
+                const isVideo = !!msgContent?.videoMessage;
                 
-                if (!isImage) {
-                    await sock.sendMessage(remoteJid, { text: "❌ Please reply to an image or send an image with caption #sticker" }, { quoted: msg });
+                if (!isImage && !isVideo) {
+                    await sock.sendMessage(remoteJid, { text: "❌ Please reply to an image/video or send media with caption #sticker" }, { quoted: msg });
                     return;
+                }
+
+                // Handle Video Limits
+                if (isVideo) {
+                    if (!(config as any).enableVideoSticker) {
+                        await sock.sendMessage(remoteJid, { text: "❌ Video stickers are disabled in bot settings." }, { quoted: msg });
+                        return;
+                    }
+
+                    const seconds = msgContent?.videoMessage?.seconds || 0;
+                    const maxDuration = (config as any).maxStickerDuration || 10;
+                    
+                    if (seconds > maxDuration) {
+                        await sock.sendMessage(remoteJid, { text: `❌ Video too long! Max duration is ${maxDuration} seconds.` }, { quoted: msg });
+                        return;
+                    }
                 }
 
                 await sock.sendMessage(remoteJid, { react: { text: "⏳", key: msg.key } });
@@ -168,9 +187,9 @@ export async function handleBotCommand(
                         {}
                     ) as Buffer;
                     
-                    // Check for background removal
+                    // Check for background removal (Only for Images)
                     const isRemoveBg = args.includes("nobg") || args.includes("removebg");
-                    if (isRemoveBg && config.removeBgApiKey) {
+                    if (isImage && isRemoveBg && config.removeBgApiKey) {
                         try {
                             // Convert Buffer to Uint8Array for Blob compatibility
                             const uint8Array = new Uint8Array(buffer);
@@ -199,9 +218,10 @@ export async function handleBotCommand(
                             console.error("RemoveBG Failed:", bgError);
                             await sock.sendMessage(remoteJid, { text: `⚠️ Remove BG failed: ${(bgError as any).message}. Sending normal sticker...` }, { quoted: msg });
                         }
-                    } else if (isRemoveBg && !config.removeBgApiKey) {
+                    } else if (isImage && isRemoveBg && !config.removeBgApiKey) {
                          await sock.sendMessage(remoteJid, { text: `⚠️ Remove BG API Key not configured in dashboard. Sending normal sticker...` }, { quoted: msg });
                     }
+
 
                     // Convert
                     const sticker = new Sticker(buffer as Buffer, {
@@ -231,8 +251,9 @@ export async function handleBotCommand(
 🤖 *${botName} Menu* 🤖
 
 📌 *Commands:*
-• *#sticker* / *#s*: Convert Image to Sticker
-  - Use *#sticker nobg* to remove background (Requires API Key)
+• *#sticker* / *#s*: Convert Image/Video to Sticker
+  - Supports Images, GIFs, and Videos (max ${(config as any).maxStickerDuration || 10}s)
+  - Use *#sticker nobg* to remove background (Images only)
 • *#ping*: Check Bot Status
 • *#uptime*: Check Session Uptime
 • *#id*: Get Chat ID

@@ -224,6 +224,8 @@ model BotConfig {
   autoReplyAllowedJids Json?
 
   enableSticker Boolean  @default(true)
+  enableVideoSticker Boolean @default(true)
+  maxStickerDuration Int @default(10) // in seconds
   enablePing    Boolean  @default(true)
   enableUptime  Boolean  @default(true)
   removeBgApiKey String?

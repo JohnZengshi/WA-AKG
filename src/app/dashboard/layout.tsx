@@ -21,6 +21,8 @@ import { UpdateChecker } from "@/components/dashboard/update-checker";
 
 import { prisma } from "@/lib/prisma"; // Add prisma import
 import { Toaster } from "sonner"; // Assuming sonner is installed
+import pkg from "../../../package.json";
+
 
 export default async function DashboardLayout({
     children,
@@ -117,6 +119,9 @@ export default async function DashboardLayout({
                                 <LogOut size={16} /> Logout
                             </Button>
                         </form>
+                        <div className="mt-4 text-center">
+                            <span className="text-xs text-gray-400 font-mono">v{pkg.version}</span>
+                        </div>
                     </div>
                 </aside>
 
