@@ -42,13 +42,13 @@ export const bindSessionStore = (sock: WASocket, sessionId: string, _unused: str
 
         for (const msg of messages) {
             try {
+                const isNew = await processAndSaveMessage(msg, dbSessionId, sessionId, type === 'notify');
+                
                 // Execute Bot Commands (Only for Notify / New Messages)
-                if (type === 'notify') {
+                if (type === 'notify' && isNew) {
                    // Run in background, don't await strictly to not block saving
                    handleBotCommand(sock, sessionId, msg).catch(e => console.error("Bot Handler Error", e));
                 }
-
-                await processAndSaveMessage(msg, dbSessionId, sessionId, type === 'notify');
             } catch (error) {
                 console.error("Error saving message", error);
             }
@@ -177,8 +177,45 @@ async function processAndSaveMessage(msg: WAMessage, dbSessionId: string, sessio
         ? new Date((typeof msg.messageTimestamp === 'number' ? msg.messageTimestamp : Number(msg.messageTimestamp)) * 1000)
         : new Date();
     
-    if (!keyId || !remoteJid) return;
+    // Filter out Protocol & Empty Messages
+    if (!msg.message) return false;
+    if (!keyId || !remoteJid) return false;
     
+    // Ignore specific technical message types
+    const messageKeys = Object.keys(msg.message);
+    const ignoredTypes = [
+        'protocolMessage', 
+        'senderKeyDistributionMessage', 
+        'reactionMessage', // Optional: User might want reactions, but usually "kosong" means junk
+        'keepInChatMessage' 
+    ];
+    
+    // If message only contains ignored types, skip
+    if (messageKeys.every(k => ignoredTypes.includes(k))) {
+        console.log(`Skipping technical message: ${keyId} (${messageKeys.join(', ')})`);
+        return false;
+    }
+
+    // Check if message already exists to avoid duplicates
+    // Baileys 'notify' event can sometimes trigger multiple times or for history
+    // Baileys 'notify' event can sometimes trigger multiple times or for history
+    const existingMessage = await prisma.message.findUnique({
+        where: { sessionId_keyId: { sessionId: dbSessionId, keyId: keyId! } },
+        select: { id: true, status: true }
+    });
+
+    if (existingMessage) {
+        // Message exists! Update status if changed, but DO NOT re-trigger webhooks/bot
+        if (fromMe && existingMessage.status !== 'SENT') {
+             await prisma.message.update({
+                where: { id: existingMessage.id },
+                data: { status: 'SENT' }
+            });
+        }
+        // Return false to indicate "Not New"
+        return false;
+    }
+
     // Debug fromMe issue (Keep this for a while)
     if (fromMe === undefined || fromMe === null) {
         console.log(`[DEBUG] Message ${keyId} has fromMe=${fromMe}. Key:`, JSON.stringify(msg.key));
@@ -234,9 +271,8 @@ async function processAndSaveMessage(msg: WAMessage, dbSessionId: string, sessio
         console.error("Error downloading media in store", e);
     }
 
-    await prisma.message.upsert({
-        where: { sessionId_keyId: { sessionId: dbSessionId, keyId } },
-        create: {
+    await prisma.message.create({
+        data: {
             sessionId: dbSessionId,
             remoteJid,
             senderJid,
@@ -248,10 +284,6 @@ async function processAndSaveMessage(msg: WAMessage, dbSessionId: string, sessio
             mediaUrl: fileUrl, // Save Media URL
             status: fromMe ? "SENT" : "PENDING",
             timestamp
-        },
-        update: {
-            // Only update if we have new information
-            status: fromMe ? "SENT" : "PENDING", 
         }
     });
 
@@ -289,6 +321,7 @@ async function processAndSaveMessage(msg: WAMessage, dbSessionId: string, sessio
     }
 
     // Trigger webhook for new messages only (not history sync)
+    // AND filter duplicates is implicitly done because we return 'false' above if existing
     if (triggerWebhook) {
         if (fromMe) {
             onMessageSent(sessionId, msg, fileUrl).catch(e => console.error("Error in onMessageSent", e));
@@ -297,5 +330,7 @@ async function processAndSaveMessage(msg: WAMessage, dbSessionId: string, sessio
             onMessageReceived(sessionId, msg, fileUrl).catch(e => console.error("Error in onMessageReceived", e));
         }
     }
+
+    return true; // Is New Message = True
 }
 // Placeholder - verified that I need to find the logic first
