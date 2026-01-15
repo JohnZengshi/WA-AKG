@@ -388,7 +388,6 @@ When an event occurs, your endpoint will receive a POST request.
             "remoteJid": "12345@g.us",
             "participant": "62898765432@s.whatsapp.net",
             "id": "QUOTED_ID"
-            "id": "QUOTED_ID"
         },
         "type": "IMAGE",
         "content": "Caption",
