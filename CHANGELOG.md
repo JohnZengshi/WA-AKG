@@ -21,8 +21,13 @@
     - **Features**: Search by Name/JID, Session Filtering, and Configurable Pagination Limits (5 to 3000 items per page).
     - **Database**: Enhanced `Contact` model to store `lid`, `verifiedName`, `remoteJidAlt`, `profilePic`, and raw `data`.
 - **UI Enhancements**:
-    - **Version Display**: Updated Sidebar and Mobile Navigation to display the full version string (e.g., `Version: beta-v1.1.0.1`).
-
+- **Enhanced Messaging Engine**:
+    - **Duplicate Filter**: Implemented robust detection to prevent duplicate message processing and auto-replies.
+    - **Junk Filter**: Automatically ignores empty messages and technical protocol messages (e.g., key distribution, reactions) to keep the logs clean.
+- **Improved UI Inputs**:
+    - **Multiline Support**: Auto Reply and Scheduler now use Textarea inputs, allowing for longer, multi-line messages.
+- **Bug Fixes**:
+    - **Media Access**: Fixed middleware configuration to ensure public media files are accessible.
 ### Fixed
 - **Build Stability**: Resolved improper UI module imports (`Table`, `Pagination`) and missing type overrides for Prisma schema changes.
 - **Backend Logic**: Fixed duplicate imports in dashboard pages.

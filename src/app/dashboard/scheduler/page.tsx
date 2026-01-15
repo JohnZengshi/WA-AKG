@@ -189,10 +189,11 @@ export default function SchedulerPage() {
                             </div>
                             <div className="space-y-2">
                                 <Label>Message</Label>
-                                <Input
+                                <Textarea
                                     value={newContent}
                                     onChange={e => setNewContent(e.target.value)}
                                     placeholder="Hello there!"
+                                    rows={4}
                                 />
                             </div>
                             <div className="flex justify-end gap-2">
