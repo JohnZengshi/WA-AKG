@@ -3,6 +3,13 @@ import type { WASocket, WAMessage } from "@whiskeysockets/baileys";
 import { downloadMediaMessage } from "@whiskeysockets/baileys";
 import Sticker from "wa-sticker-formatter"; 
 import sharp from "sharp"; 
+import fs from "fs/promises";
+import path from "path";
+import os from "os";
+import { exec } from "child_process";
+import { promisify } from "util";
+
+const execAsync = promisify(exec); 
 
 // Map to track start times for uptime
 const startTimes = new Map<string, number>();
@@ -197,18 +204,40 @@ export async function handleBotCommand(
                         }
                     ) as Buffer;
 
-                    // Resize Image if needed (prevent pixel limit error)
+                    // Resize/Compress Logic
                     if (isImage) {
                         try {
-                           buffer = await sharp(buffer)
+                           // Use limitInputPixels: false to handle large images
+                           buffer = await sharp(buffer, { limitInputPixels: false })
                                 .resize(800, 800, {
                                     fit: 'inside',
                                     withoutEnlargement: true
                                 })
                                 .toBuffer();
                         } catch (resizeErr) {
-                            console.error("Resize failed", resizeErr);
+                            console.error("Image Resize failed", resizeErr);
                         }
+                    } else if (isVideo) {
+                         try {
+                            const tempInput = path.join(os.tmpdir(), `input_${Date.now()}.mp4`);
+                            const tempOutput = path.join(os.tmpdir(), `output_${Date.now()}.mp4`);
+                            
+                            await fs.writeFile(tempInput, buffer);
+                            
+                            // Compress Video using ffmpeg
+                            // Scale to 512px max width/height, 15fps for stickers
+                            await execAsync(`ffmpeg -y -i "${tempInput}" -vf "scale=512:512:force_original_aspect_ratio=decrease,fps=15" -c:v libx264 -crf 32 -an "${tempOutput}"`);
+                            
+                            buffer = await fs.readFile(tempOutput);
+                            
+                            // Cleanup
+                            await fs.unlink(tempInput).catch(() => {});
+                            await fs.unlink(tempOutput).catch(() => {});
+                         } catch (videoErr) {
+                             console.error("Video Compression failed", videoErr);
+                             // Continue with original buffer if compression fails, or throw? 
+                             // If it fails, likely original will fail too, but let's try.
+                         }
                     }
                     
                     // Check for background removal (Only for Images)
