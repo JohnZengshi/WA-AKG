@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.1.0.1] - 2026-01-15
+
+### Added
+- **Webhook Quoted Message Support**: 
+    - The webhook payload now includes a `quoted` object when processing a reply to a message.
+    - **Recursive Extraction**: Extracts `type`, `content`, `caption`, and identifying keys (`id`, `participant`) of the quoted message.
+    - **Smart Media Lookup**: Automatically looks up the original message in the database using its `stanzaId`. If the original message was a media file (Image/Video/Sticker) that was previously saved, the `quoted.fileUrl` field is populated with the local path. This avoids re-downloading media and saves bandwidth.
+- **Documentation**: Updated `README.md` with detailed collapsible webhook payload examples.
+
+### Fixed
+- **Webhook Syntax**: Resolved a critical syntax error (duplicate code block) in `src/lib/webhook.ts` that caused build failures.
+- **Robustness**: Improved `extractQuotedMessage` helper to handle various message types (Group, Private) accurately.
+
 ## [1.1.0] - 2026-01-13
 
 ### Added

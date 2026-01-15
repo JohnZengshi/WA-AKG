@@ -29,6 +29,59 @@ Turn your WhatsApp into a programmable API. Whether you need a simple **WhatsApp
 - **📢 Broadcast / Blast**: Safe bulk messaging with random delays (10-30s) to minimize ban risks.
 - **🤖 Advanced Auto-Reply**: Create smart bots with `EXACT`, `CONTAINS`, or `STARTS_WITH` keyword matching.
 - **🔗 Powerful Webhooks**: Real-time event forwarding (`message.received`, `message.sent`) to your external APIs.
+  <details>
+  <summary>View Webhook Payload</summary>
+
+  ```json
+  {
+    "event": "message.received",
+    "sessionId": "marketing-1",
+    "timestamp": "2024-01-01T12:00:00Z",
+    "data": {
+      "key": {
+        "remoteJid": "12345@g.us",
+        "fromMe": false,
+        "id": "ABC12345",
+        "participant": "62812345678@lid" 
+      },
+      "pushName": "John Doe",
+      "messageTimestamp": 1704110400,
+      
+      // Standardized Fields
+      "from": "12345@g.us", // Chat JID (Room)
+      "sender": { // Enriched Sender Info
+          "id": "62812345678@lid",
+          "phoneNumber": "62812345678@s.whatsapp.net",
+          "admin": "admin"
+      },
+      "remoteJidAlt": "62812345678@s.whatsapp.net", // Sender Phone JID
+      "isGroup": true,
+      
+      // Content
+      "type": "IMAGE",
+      "content": "Check this out", 
+      "fileUrl": "/media/marketing-1-ABC12345.jpg", // Path to downloaded media
+      "caption": "Check this out",
+      
+      // Quoted Message (Reply)
+      "quoted": { 
+          "key": {
+              "remoteJid": "12345@g.us",
+              "participant": "62898765432@s.whatsapp.net",
+              "id": "QUOTED_ID"
+          },
+          "type": "IMAGE",
+          "content": "Caption",
+          "caption": "Caption",
+          "fileUrl": "/media/marketing-1-QUOTED_ID.jpg" // Includes Media URL from DB!
+      },
+      
+      // Raw Data (Debugging)
+      "raw": { ... }
+    }
+  }
+  ```
+  </details>
 - **👥 Group Management**: Fetch groups, manage participants, and send announcements effortlessly.
 - **🎨 Sticker Maker**: Convert images to stickers securely; supports removing backgrounds via API.
 - **🔒 Role-Based Access**: Granular control with `Owner` (Superadmin) and `User` roles.
