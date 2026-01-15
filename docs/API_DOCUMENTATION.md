@@ -143,21 +143,53 @@ Retrieve stored messages for a specific contact. `jid` can be a User JID (`...s.
   }
   ```
 
-### Send Message
-`POST /api/chat/send`
-
-Send a text message to a contact or group.
-
-**Body:**
-```json
-{
-  "sessionId": "marketing-1",
-  "jid": "62812345678@s.whatsapp.net", // or 12345@g.us
-  "message": {
-    "text": "Hello World!"
-  }
-}
-```
+  ```
+145: 
+146: ### Send Message / Media
+147: `POST /api/chat/send`
+148: 
+149: Send a text or media message (Image, Video, Audio, Document, Sticker) to a contact or group.
+150: 
+151: **Body (Text):**
+152: ```json
+153: {
+154:   "sessionId": "marketing-1",
+155:   "jid": "62812345678@s.whatsapp.net",
+156:   "message": {
+157:     "text": "Hello World!"
+158:   }
+159: }
+160: ```
+161: 
+162: **Body (Image/Video/Audio/Document via URL):**
+163: ```json
+164: {
+165:   "sessionId": "marketing-1",
+166:   "jid": "62812345678@s.whatsapp.net",
+167:   "message": {
+168:     "image": { "url": "https://example.com/image.jpg" },
+169:     // OR
+170:     "video": { "url": "https://example.com/video.mp4" },
+171:     "caption": "Check this media!" // Optional caption
+172:   }
+173: }
+174: ```
+175: 
+176: **Body (Sticker via URL):**
+177: > Automatically converts Image/Video URL to WebP Sticker.
+178: ```json
+179: {
+180:   "sessionId": "marketing-1",
+181:   "jid": "62812345678@s.whatsapp.net",
+182:   "message": {
+183:     "sticker": { 
+184:         "url": "https://example.com/sticker.png",
+185:         "pack": "My Pack", // Optional
+186:         "author": "Me" // Optional
+187:     }
+188:   }
+189: }
+190: ```
 
 ### Send Sticker
 `POST /api/messages/sticker`

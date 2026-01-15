@@ -313,8 +313,14 @@ export default function BotSettingsPage() {
                                                 min={1}
                                                 max={60}
                                                 className="h-8 w-20"
-                                                value={config.maxStickerDuration}
-                                                onChange={(e) => setConfig(prev => ({ ...prev, maxStickerDuration: parseInt(e.target.value) || 10 }))}
+                                                value={config.maxStickerDuration || ""}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    setConfig(prev => ({
+                                                        ...prev,
+                                                        maxStickerDuration: val === "" ? 0 : parseInt(val)
+                                                    }));
+                                                }}
                                             />
                                         </div>
                                     )}
@@ -364,7 +370,7 @@ export default function BotSettingsPage() {
                                         />
                                     </div>
                                     <p className="text-xs text-muted-foreground">
-                                        Required for background removal features. Get one at <a href="https://www.remove.bg/api" target="_blank" className="underline hover:text-primary">remove.bg</a>.
+                                        Required for background removal features. Get one at <a href="https://www.remove.bg/api" target="_blank" rel="noopener noreferrer" className="underline hover:text-primary">remove.bg</a>.
                                         <br />Command: <code>#sticker nobg</code>
                                     </p>
                                 </div>
