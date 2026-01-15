@@ -96,6 +96,16 @@ Convert images to stickers easily.
 
 ---
 
+## 8. Contact Management
+View and manage your synced WhatsApp contacts.
+
+1.  Navigate to **Contacts**.
+2.  **Search**: Use the search bar to find contacts by Name, JID, or Phone Number.
+3.  **Pagination Limit**: Use the dropdown next to the search bar to change the number of contacts displayed per page (up to 3000).
+4.  **Session Filter**: The list automatically shows contacts synced with your currently active session.
+
+---
+
 ## ⚙️ Settings
 -   **System Settings**: Change the App Name, Logo, and global **Timezone**.
 -   **Bot Settings**: Configure the bot name and default behaviors.
