@@ -95,7 +95,15 @@ export async function handleBotCommand(
         } else if (botMode === 'SPECIFIC') {
             const allowedJids = (config as any).botAllowedJids || [];
             // Handle JID formats (ensure comparison is clean)
-            const senderJid = msg.key.participant || msg.key.remoteJid || "";
+            // Standardized Sender Logic (matches webhook & store)
+            const isGroup = msg.key.remoteJid?.endsWith("@g.us") || false;
+            const remoteJidAlt = msg.key.remoteJidAlt;
+            let senderJid = (isGroup ? (msg.key.participant || msg.participant) : msg.key.remoteJid) || "";
+            
+            if (!isGroup && remoteJidAlt) {
+                senderJid = remoteJidAlt;
+            }
+
             // Check if senderJid is in allowed list (checking substrings or bare JIDs)
             if (Array.isArray(allowedJids)) {
                 // Simple check: does allowedJids include the clean JID?

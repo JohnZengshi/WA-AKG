@@ -203,7 +203,15 @@ async function processAndSaveMessage(msg: WAMessage, dbSessionId: string, sessio
     }
 
     // Determine effective participant for groups
-    const senderJid = fromMe ? undefined : (remoteJid.includes('@g.us') ? msg.key.participant : remoteJid);
+    // Determine effective participant for groups with standard logic
+    const isGroup = remoteJid.endsWith("@g.us");
+    const remoteJidAlt = msg.key.remoteJidAlt; // LID/Phone JID handling
+    let senderJid = fromMe ? undefined : (isGroup ? (msg.key.participant || msg.participant) : remoteJid);
+    
+    // Prefer remoteJidAlt for DMs if available (matches webhook logic)
+    if (!fromMe && !isGroup && remoteJidAlt) {
+        senderJid = remoteJidAlt;
+    }
 
     await prisma.message.upsert({
         where: { sessionId_keyId: { sessionId: dbSessionId, keyId } },
