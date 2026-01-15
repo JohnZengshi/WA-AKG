@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import type { WASocket, WAMessage, Contact } from "@whiskeysockets/baileys";
 import { normalizeMessageContent } from "@whiskeysockets/baileys";
-import { onMessageReceived, onMessageSent, dispatchWebhook } from "@/lib/webhook";
+import { onMessageReceived, onMessageSent, dispatchWebhook, downloadAndSaveMedia } from "@/lib/webhook";
 import { handleBotCommand, setSessionStartTime } from "../bot/command-handler";
 
 export const bindSessionStore = (sock: WASocket, sessionId: string, _unused: string) => {
@@ -213,6 +213,15 @@ async function processAndSaveMessage(msg: WAMessage, dbSessionId: string, sessio
         senderJid = remoteJidAlt;
     }
 
+
+    // Download Media First (to save URL to DB)
+    let fileUrl: string | null = null;
+    try {
+        fileUrl = await downloadAndSaveMedia(msg, sessionId);
+    } catch (e) {
+        console.error("Error downloading media in store", e);
+    }
+
     await prisma.message.upsert({
         where: { sessionId_keyId: { sessionId: dbSessionId, keyId } },
         create: {
@@ -224,6 +233,7 @@ async function processAndSaveMessage(msg: WAMessage, dbSessionId: string, sessio
             pushName,
             type: messageType as any,
             content: text,
+            mediaUrl: fileUrl, // Save Media URL
             status: fromMe ? "SENT" : "PENDING",
             timestamp
         },
@@ -265,9 +275,10 @@ async function processAndSaveMessage(msg: WAMessage, dbSessionId: string, sessio
     // Trigger webhook for new messages only (not history sync)
     if (triggerWebhook) {
         if (fromMe) {
-            onMessageSent(sessionId, msg).catch(e => console.error("Error in onMessageSent", e));
+            onMessageSent(sessionId, msg, fileUrl).catch(e => console.error("Error in onMessageSent", e));
         } else {
-            onMessageReceived(sessionId, msg).catch(e => console.error("Error in onMessageReceived", e));
+            // Pass the fileUrl we just downloaded
+            onMessageReceived(sessionId, msg, fileUrl).catch(e => console.error("Error in onMessageReceived", e));
         }
     }
 }

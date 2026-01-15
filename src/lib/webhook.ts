@@ -145,7 +145,7 @@ async function sendWebhookRequest(url: string, payload: WebhookPayload, secret?:
 /**
  * Helper to download and save media
  */
-async function downloadAndSaveMedia(message: WAMessage, sessionId: string): Promise<string | null> {
+export async function downloadAndSaveMedia(message: WAMessage, sessionId: string): Promise<string | null> {
     try {
         const messageContent = normalizeMessageContent(message.message);
         if (!messageContent) {
@@ -221,7 +221,7 @@ async function downloadAndSaveMedia(message: WAMessage, sessionId: string): Prom
  * Helper to dispatch message received event
  * Normalizes message content to match API structure
  */
-export async function onMessageReceived(sessionId: string, message: any) {
+export async function onMessageReceived(sessionId: string, message: any, existingFileUrl?: string | null) {
     // Re-calculate fields to match store logic EXACTLY
     const remoteJid = message.key?.remoteJid || "";
     const fromMe = message.key?.fromMe || false;
@@ -277,12 +277,14 @@ export async function onMessageReceived(sessionId: string, message: any) {
         }
     }
 
-    // Download media if available
-    let fileUrl: string | null = null;
-    try {
-        fileUrl = await downloadAndSaveMedia(message, sessionId);
-    } catch (e) {
-         console.error("Error handling media download", e);
+    // Download media if available (or use existing)
+    let fileUrl: string | null = existingFileUrl || null;
+    if (!fileUrl) {
+        try {
+            fileUrl = await downloadAndSaveMedia(message, sessionId);
+        } catch (e) {
+             console.error("Error handling media download", e);
+        }
     }
 
     const normalized = extractMessageContent(message);
@@ -317,15 +319,17 @@ export async function onMessageReceived(sessionId: string, message: any) {
 /**
  * Helper to dispatch message sent event
  */
-export async function onMessageSent(sessionId: string, message: any) {
+export async function onMessageSent(sessionId: string, message: any, existingFileUrl?: string | null) {
     const normalized = extractMessageContent(message);
     const remoteJid = message.key?.remoteJid || "";
     
     // Download media for sent messages too (optional but good)
-    let fileUrl: string | null = null;
-    try {
-        fileUrl = await downloadAndSaveMedia(message, sessionId);
-    } catch (e) { /* ignore */ }
+    let fileUrl: string | null = existingFileUrl || null;
+    if (!fileUrl) {
+        try {
+            fileUrl = await downloadAndSaveMedia(message, sessionId);
+        } catch (e) { /* ignore */ }
+    }
     
     // For sent messages, sender is always ME (or represented by the bot)
     // If it's a group, the participant might be undefined in the key if sent by us, 
