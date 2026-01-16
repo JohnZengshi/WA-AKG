@@ -16,7 +16,9 @@ import {
     ImageIcon,
     Webhook,
     CalendarClock,
-    Bot
+    Bot,
+    FileText,
+    Code
 } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
@@ -39,6 +41,8 @@ export function MobileNav({ appName = "WA-AKG" }: { appName?: string }) {
         { href: "/dashboard/webhooks", label: "Webhooks & API", Icon: Webhook },
         { href: "/dashboard/autoreply", label: "Auto Reply", Icon: MessageSquare },
         { href: "/dashboard/scheduler", label: "Scheduler", Icon: CalendarClock },
+        { href: "/dashboard/api-docs", label: "API Documentation", Icon: FileText },
+        { href: "/docs", label: "Swagger UI", Icon: Code, external: true },
         { href: "/dashboard/users", label: "Users", Icon: Users },
         { href: "/dashboard/settings", label: "Settings", Icon: Settings },
     ];

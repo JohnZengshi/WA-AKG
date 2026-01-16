@@ -3,11 +3,11 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { FileText, Code, ExternalLink } from "lucide-react";
 
 export default function ApiDocsPage() {
     const { data: session, status } = useSession();
     const router = useRouter();
-    const [endpoints, setEndpoints] = useState<any[]>([]);
     const [filter, setFilter] = useState("");
     const [selectedCategory, setSelectedCategory] = useState("All");
 
@@ -18,64 +18,117 @@ export default function ApiDocsPage() {
     }, [status, router]);
 
     const apiEndpoints = [
-        // Sessions
-        { category: "Sessions", method: "GET", path: "/api/sessions", description: "List all sessions", auth: "Required" },
-        { category: "Sessions", method: "POST", path: "/api/sessions", description: "Create new session", auth: "Required" },
-        { category: "Sessions", method: "DELETE", path: "/api/sessions/[id]", description: "Delete session", auth: "Required" },
-        { category: "Sessions", method: "GET", path: "/api/sessions/[id]/qr", description: "Get QR code", auth: "Required" },
+        // Sessions (5)
+        { category: "Sessions", method: "GET", path: "/api/sessions", description: "List all sessions" },
+        { category: "Sessions", method: "POST", path: "/api/sessions", description: "Create new session" },
+        { category: "Sessions", method: "DELETE", path: "/api/sessions/[id]", description: "Delete session" },
+        { category: "Sessions", method: "GET", path: "/api/sessions/[id]/qr", description: "Get QR code" },
+        { category: "Sessions", method: "GET", path: "/api/sessions/[id]/bot-config", description: "Get bot config" },
+        { category: "Sessions", method: "PUT", path: "/api/sessions/[id]/bot-config", description: "Update bot config" },
+        { category: "Sessions", method: "PUT", path: "/api/sessions/[id]/settings", description: "Update settings" },
 
-        // Groups
-        { category: "Groups", method: "PUT", path: "/api/groups/[jid]/picture", description: "Update group picture", auth: "Required" },
-        { category: "Groups", method: "DELETE", path: "/api/groups/[jid]/picture", description: "Remove group picture", auth: "Required" },
-        { category: "Groups", method: "PUT", path: "/api/groups/[jid]/subject", description: "Update group name", auth: "Required" },
-        { category: "Groups", method: "PUT", path: "/api/groups/[jid]/description", description: "Update description", auth: "Required" },
-        { category: "Groups", method: "GET", path: "/api/groups/[jid]/invite", description: "Get invite code", auth: "Required" },
-        { category: "Groups", method: "PUT", path: "/api/groups/[jid]/invite/revoke", description: "Revoke invite", auth: "Required" },
-        { category: "Groups", method: "POST", path: "/api/groups/invite/accept", description: "Accept invite", auth: "Required" },
-        { category: "Groups", method: "PUT", path: "/api/groups/[jid]/members", description: "Manage members", auth: "Required" },
-        { category: "Groups", method: "PUT", path: "/api/groups/[jid]/settings", description: "Update settings", auth: "Required" },
-        { category: "Groups", method: "PUT", path: "/api/groups/[jid]/ephemeral", description: "Toggle disappearing", auth: "Required" },
-        { category: "Groups", method: "POST", path: "/api/groups/[jid]/leave", description: "Leave group", auth: "Required" },
+        // Groups (10)
+        { category: "Groups", method: "GET", path: "/api/groups", description: "List groups" },
+        { category: "Groups", method: "POST", path: "/api/groups/create", description: "Create group" },
+        { category: "Groups", method: "POST", path: "/api/groups/invite/accept", description: "Accept invite" },
+        { category: "Groups", method: "PUT", path: "/api/groups/[jid]/picture", description: "Update group picture" },
+        { category: "Groups", method: "DELETE", path: "/api/groups/[jid]/picture", description: "Remove group picture" },
+        { category: "Groups", method: "PUT", path: "/api/groups/[jid]/subject", description: "Update group name" },
+        { category: "Groups", method: "PUT", path: "/api/groups/[jid]/description", description: "Update description" },
+        { category: "Groups", method: "GET", path: "/api/groups/[jid]/invite", description: "Get invite code" },
+        { category: "Groups", method: "PUT", path: "/api/groups/[jid]/invite/revoke", description: "Revoke invite" },
+        { category: "Groups", method: "PUT", path: "/api/groups/[jid]/members", description: "Manage members" },
+        { category: "Groups", method: "PUT", path: "/api/groups/[jid]/settings", description: "Update settings" },
+        { category: "Groups", method: "PUT", path: "/api/groups/[jid]/ephemeral", description: "Toggle disappearing" },
+        { category: "Groups", method: "POST", path: "/api/groups/[jid]/leave", description: "Leave group" },
 
-        // Profile
-        { category: "Profile", method: "GET", path: "/api/profile", description: "Get own profile", auth: "Required" },
-        { category: "Profile", method: "PUT", path: "/api/profile/name", description: "Update name", auth: "Required" },
-        { category: "Profile", method: "PUT", path: "/api/profile/status", description: "Update status", auth: "Required" },
-        { category: "Profile", method: "PUT", path: "/api/profile/picture", description: "Update picture", auth: "Required" },
-        { category: "Profile", method: "DELETE", path: "/api/profile/picture", description: "Remove picture", auth: "Required" },
+        // Profile (4)
+        { category: "Profile", method: "GET", path: "/api/profile", description: "Get own profile" },
+        { category: "Profile", method: "PUT", path: "/api/profile/name", description: "Update name" },
+        { category: "Profile", method: "PUT", path: "/api/profile/status", description: "Update status" },
+        { category: "Profile", method: "PUT", path: "/api/profile/picture", description: "Update picture" },
+        { category: "Profile", method: "DELETE", path: "/api/profile/picture", description: "Remove picture" },
 
-        // Messaging
-        { category: "Messaging", method: "POST", path: "/api/messages/text", description: "Send text message", auth: "Required" },
-        { category: "Messaging", method: "POST", path: "/api/messages/poll", description: "Send poll", auth: "Required" },
-        { category: "Messaging", method: "POST", path: "/api/messages/list", description: "Send list", auth: "Required" },
-        { category: "Messaging", method: "POST", path: "/api/messages/location", description: "Send location", auth: "Required" },
-        { category: "Messaging", method: "POST", path: "/api/messages/contact", description: "Send contact", auth: "Required" },
-        { category: "Messaging", method: "POST", path: "/api/messages/react", description: "Send reaction", auth: "Required" },
-        { category: "Messaging", method: "POST", path: "/api/messages/forward", description: "Forward message", auth: "Required" },
-        { category: "Messaging", method: "DELETE", path: "/api/messages/delete", description: "Delete message", auth: "Required" },
-        { category: "Messaging", method: "GET", path: "/api/messages/[id]/media", description: "Download media", auth: "Required" },
+        // Messaging (9)
+        { category: "Messaging", method: "POST", path: "/api/chat/send", description: "Send message" },
+        { category: "Messaging", method: "POST", path: "/api/messages/poll", description: "Send poll" },
+        { category: "Messaging", method: "POST", path: "/api/messages/list", description: "Send list message" },
+        { category: "Messaging", method: "POST", path: "/api/messages/location", description: "Send location" },
+        { category: "Messaging", method: "POST", path: "/api/messages/contact", description: "Send contact" },
+        { category: "Messaging", method: "POST", path: "/api/messages/react", description: "Send reaction" },
+        { category: "Messaging", method: "POST", path: "/api/messages/forward", description: "Forward message" },
+        { category: "Messaging", method: "POST", path: "/api/messages/sticker", description: "Send sticker" },
+        { category: "Messaging", method: "POST", path: "/api/messages/broadcast", description: "Broadcast message" },
+        { category: "Messaging", method: "POST", path: "/api/messages/spam", description: "Report spam" },
+        { category: "Messaging", method: "DELETE", path: "/api/messages/delete", description: "Delete message" },
+        { category: "Messaging", method: "GET", path: "/api/messages/[id]/media", description: "Download media" },
 
-        // Chat
-        { category: "Chat", method: "POST", path: "/api/chat/check", description: "Check WhatsApp numbers", auth: "Required" },
-        { category: "Chat", method: "PUT", path: "/api/chat/read", description: "Mark as read", auth: "Required" },
-        { category: "Chat", method: "PUT", path: "/api/chat/archive", description: "Archive chat", auth: "Required" },
-        { category: "Chat", method: "POST", path: "/api/chat/presence", description: "Send presence", auth: "Required" },
-        { category: "Chat", method: "POST", path: "/api/chat/profile-picture", description: "Get profile picture", auth: "Required" },
-        { category: "Chat", method: "PUT", path: "/api/chat/[jid]/mute", description: "Mute chat", auth: "Required" },
-        { category: "Chat", method: "PUT", path: "/api/chat/[jid]/pin", description: "Pin chat", auth: "Required" },
+        // Chat (11)
+        { category: "Chat", method: "GET", path: "/api/chat/[sessionId]", description: "Get chats" },
+        { category: "Chat", method: "GET", path: "/api/chat/[sessionId]/[jid]", description: "Get specific chat" },
+        { category: "Chat", method: "POST", path: "/api/chat/check", description: "Check WhatsApp numbers" },
+        { category: "Chat", method: "PUT", path: "/api/chat/read", description: "Mark as read" },
+        { category: "Chat", method: "PUT", path: "/api/chat/archive", description: "Archive chat" },
+        { category: "Chat", method: "POST", path: "/api/chat/presence", description: "Send presence" },
+        { category: "Chat", method: "POST", path: "/api/chat/profile-picture", description: "Get profile picture" },
+        { category: "Chat", method: "PUT", path: "/api/chat/mute", description: "Mute chat" },
+        { category: "Chat", method: "PUT", path: "/api/chat/pin", description: "Pin chat" },
 
-        // Contacts
-        { category: "Contacts", method: "POST", path: "/api/contacts/block", description: "Block contact", auth: "Required" },
-        { category: "Contacts", method: "POST", path: "/api/contacts/unblock", description: "Unblock contact", auth: "Required" },
+        // Contacts (3)
+        { category: "Contacts", method: "GET", path: "/api/contacts", description: "List contacts" },
+        { category: "Contacts", method: "POST", path: "/api/contacts/block", description: "Block contact" },
+        { category: "Contacts", method: "POST", path: "/api/contacts/unblock", description: "Unblock contact" },
 
-        // Labels
-        { category: "Labels", method: "GET", path: "/api/labels", description: "List labels", auth: "Required" },
-        { category: "Labels", method: "POST", path: "/api/labels", description: "Create label", auth: "Required" },
-        { category: "Labels", method: "PUT", path: "/api/labels/[id]", description: "Update label", auth: "Required" },
-        { category: "Labels", method: "DELETE", path: "/api/labels/[id]", description: "Delete label", auth: "Required" },
-        { category: "Labels", method: "GET", path: "/api/chat/[jid]/labels", description: "Get chat labels", auth: "Required" },
-        { category: "Labels", method: "PUT", path: "/api/chat/[jid]/labels", description: "Add/remove labels", auth: "Required" },
-        { category: "Labels", method: "GET", path: "/api/chats/by-label/[labelId]", description: "Filter by label", auth: "Required" },
+        // Labels (4)
+        { category: "Labels", method: "GET", path: "/api/labels", description: "List labels" },
+        { category: "Labels", method: "POST", path: "/api/labels", description: "Create label" },
+        { category: "Labels", method: "PUT", path: "/api/labels/[id]", description: "Update label" },
+        { category: "Labels", method: "DELETE", path: "/api/labels/[id]", description: "Delete label" },
+        { category: "Labels", method: "GET", path: "/api/labels/chat-labels?jid=xxx", description: "Get chat labels" },
+        { category: "Labels", method: "PUT", path: "/api/labels/chat-labels?jid=xxx", description: "Add/remove labels" },
+        { category: "Labels", method: "GET", path: "/api/chats/by-label/[labelId]", description: "Filter by label" },
+
+        // Auto Reply (2)
+        { category: "Auto Reply", method: "GET", path: "/api/autoreplies", description: "List auto replies" },
+        { category: "Auto Reply", method: "POST", path: "/api/autoreplies", description: "Create auto reply" },
+        { category: "Auto Reply", method: "GET", path: "/api/autoreplies/[id]", description: "Get auto reply" },
+        { category: "Auto Reply", method: "PUT", path: "/api/autoreplies/[id]", description: "Update auto reply" },
+        { category: "Auto Reply", method: "DELETE", path: "/api/autoreplies/[id]", description: "Delete auto reply" },
+
+        // Scheduler (2)
+        { category: "Scheduler", method: "GET", path: "/api/scheduler", description: "List scheduled" },
+        { category: "Scheduler", method: "POST", path: "/api/scheduler", description: "Create scheduled" },
+        { category: "Scheduler", method: "GET", path: "/api/scheduler/[id]", description: "Get scheduled" },
+        { category: "Scheduler", method: "PUT", path: "/api/scheduler/[id]", description: "Update scheduled" },
+        { category: "Scheduler", method: "DELETE", path: "/api/scheduler/[id]", description: "Delete scheduled" },
+
+        // Webhooks (2)
+        { category: "Webhooks", method: "GET", path: "/api/webhooks", description: "List webhooks" },
+        { category: "Webhooks", method: "POST", path: "/api/webhooks", description: "Create webhook" },
+        { category: "Webhooks", method: "GET", path: "/api/webhooks/[id]", description: "Get webhook" },
+        { category: "Webhooks", method: "PUT", path: "/api/webhooks/[id]", description: "Update webhook" },
+        { category: "Webhooks", method: "DELETE", path: "/api/webhooks/[id]", description: "Delete webhook" },
+
+        // Notifications (3)
+        { category: "Notifications", method: "GET", path: "/api/notifications", description: "List notifications" },
+        { category: "Notifications", method: "POST", path: "/api/notifications", description: "Create notification" },
+        { category: "Notifications", method: "PATCH", path: "/api/notifications/read", description: "Mark as read" },
+        { category: "Notifications", method: "DELETE", path: "/api/notifications/delete", description: "Delete notifications" },
+
+        // Users (4)
+        { category: "Users", method: "GET", path: "/api/users", description: "List users" },
+        { category: "Users", method: "POST", path: "/api/users", description: "Create user" },
+        { category: "Users", method: "GET", path: "/api/users/[id]", description: "Get user" },
+        { category: "Users", method: "PUT", path: "/api/users/[id]", description: "Update user" },
+        { category: "Users", method: "DELETE", path: "/api/users/[id]", description: "Delete user" },
+        { category: "Users", method: "GET", path: "/api/user/api-key", description: "Get API key" },
+        { category: "Users", method: "POST", path: "/api/user/api-key", description: "Generate API key" },
+
+        // System (4)
+        { category: "System", method: "GET", path: "/api/settings/system", description: "Get system settings" },
+        { category: "System", method: "PUT", path: "/api/settings/system", description: "Update system settings" },
+        { category: "System", method: "POST", path: "/api/status/update", description: "Update status" },
+        { category: "System", method: "GET", path: "/api/system/check-updates", description: "Check updates" },
     ];
 
     const categories = ["All", ...Array.from(new Set(apiEndpoints.map(e => e.category)))];
@@ -92,6 +145,7 @@ export default function ApiDocsPage() {
             case "GET": return "bg-green-100 text-green-800 border-green-300";
             case "POST": return "bg-blue-100 text-blue-800 border-blue-300";
             case "PUT": return "bg-yellow-100 text-yellow-800 border-yellow-300";
+            case "PATCH": return "bg-orange-100 text-orange-800 border-orange-300";
             case "DELETE": return "bg-red-100 text-red-800 border-red-300";
             default: return "bg-gray-100 text-gray-800 border-gray-300";
         }
@@ -121,33 +175,31 @@ export default function ApiDocsPage() {
                         <a
                             href="/docs"
                             target="_blank"
-                            className="flex items-center p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                            className="flex items-center p-4 border rounded-lg hover:bg-gray-50 transition-colors group"
                         >
+                            <Code className="w-10 h-10 text-blue-600 mr-4" />
                             <div className="flex-1">
-                                <h3 className="font-medium text-gray-800">Swagger UI</h3>
+                                <h3 className="font-medium text-gray-800 group-hover:text-blue-600">Swagger UI</h3>
                                 <p className="text-sm text-gray-600">Interactive API testing</p>
                             </div>
-                            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                            </svg>
+                            <ExternalLink className="w-5 h-5 text-gray-400" />
                         </a>
                         <a
                             href="/api/docs"
                             target="_blank"
-                            className="flex items-center p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                            className="flex items-center p-4 border rounded-lg hover:bg-gray-50 transition-colors group"
                         >
+                            <FileText className="w-10 h-10 text-green-600 mr-4" />
                             <div className="flex-1">
-                                <h3 className="font-medium text-gray-800">OpenAPI Spec</h3>
+                                <h3 className="font-medium text-gray-800 group-hover:text-green-600">OpenAPI Spec</h3>
                                 <p className="text-sm text-gray-600">JSON specification</p>
                             </div>
-                            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                            </svg>
+                            <ExternalLink className="w-5 h-5 text-gray-400" />
                         </a>
                         <div className="flex items-center p-4 border rounded-lg bg-gray-50">
                             <div className="flex-1">
                                 <h3 className="font-medium text-gray-800">Base URL</h3>
-                                <p className="text-sm text-gray-600 font-mono">/api</p>
+                                <p className="text-sm text-gray-600 font-mono break-all">{process.env.NEXT_PUBLIC_API_URL || '/api'}</p>
                             </div>
                         </div>
                     </div>
@@ -191,7 +243,6 @@ export default function ApiDocsPage() {
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Endpoint</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Auth</th>
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
@@ -210,9 +261,6 @@ export default function ApiDocsPage() {
                                             <span className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded">
                                                 {endpoint.category}
                                             </span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                                            {endpoint.auth}
                                         </td>
                                     </tr>
                                 ))}
