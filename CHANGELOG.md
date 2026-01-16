@@ -1,5 +1,22 @@
 # Changelog
 
+## [beta-v1.1.0.2] - 2026-01-17
+
+### Added
+- **Comprehensive API Documentation**:
+    - **Full Coverage**: Documented all **86 API endpoints** in `docs/API_DOCUMENTATION.md`, covering Sessions, Messaging, Groups, Contacts, Labels, Scheduler, Auto Reply, Webhooks, Users, and System modules.
+    - **OpenAPI 3.0 Support**: Completely rewrote `src/lib/swagger.ts` to provide a full OpenAPI 3.0 specification.
+    - **Detailed Examples**: Added copy-paste ready cURL examples and JSON request/response bodies for every endpoint.
+    - **Guides**: Added new sections for "Parameter Quick Reference", "Validation Limits", "Error Responses", and "Best Practices".
+- **Swagger UI Integration**:
+    - Verified and synchronized the `/dashboard/api-docs` page to correctly display the full 86-endpoint specification.
+- **Route Tracking**:
+    - Updated `all_routes.txt` to accurately track 86 HTTP endpoints across 64 route files.
+
+### Fixed
+- **Documentation Accuracy**: Corrected endpoint counts and method definitions (GET/PUT/DELETE) for `autoreplies`, `scheduler`, `webhooks`, and `users` resources.
+- **Swagger Schema**: Fixed missing endpoints in the Swagger generator script (`users/{id}`, `labels`, `notifications`, `system`, etc.).
+
 ## [1.1.0.1] - 2026-01-15
 
 ### Added
