@@ -24,6 +24,7 @@ export class WhatsAppInstance {
     userId: string;
     io: Server;
     config: any = {};
+    startTime: Date | null = null;
 
     constructor(sessionId: string, userId: string, io: Server) {
         this.sessionId = sessionId;
@@ -116,6 +117,7 @@ export class WhatsAppInstance {
             if (connection === "open") {
                 this.status = "CONNECTED";
                 this.qr = null;
+                this.startTime = new Date();
                 
                 this.io?.to(this.sessionId).emit("connection.update", { status: this.status, qr: null });
                 

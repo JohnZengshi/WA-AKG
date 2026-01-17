@@ -11,16 +11,6 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { useRouter } from 'next/navigation';
 import { toast } from "sonner";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 
 // For now let's assume I need to install qrcode.react
 // But I can also just render the QR string if I have a component. 
@@ -60,16 +50,16 @@ export function SessionManager({ user }: { user: any }) {
 
         socketInstance.on('connection.update', (data: { status: string, qr: string }) => {
             console.log("Connection update:", data);
-            if (activeSessionId) { 
+            if (activeSessionId) {
                 // Determine if this update belongs to the active view logic
                 // Typically we need to verify the session ID, but for now I am listening globally?
                 // Wait, I need to JOIN the room for the specific session.
             }
-             setQrCode(data.qr);
-             if (data.status === 'CONNECTED') {
-                 setQrCode(null);
-                 refreshSessions();
-             }
+            setQrCode(data.qr);
+            if (data.status === 'CONNECTED') {
+                setQrCode(null);
+                refreshSessions();
+            }
         });
 
         setSocket(socketInstance);
@@ -95,7 +85,7 @@ export function SessionManager({ user }: { user: any }) {
             const session = await res.json();
             setSessions([...sessions, session]);
             setNewSessionName("");
-            
+
             // Auto select
             handleViewSession(session);
         } catch (e) {
@@ -106,15 +96,12 @@ export function SessionManager({ user }: { user: any }) {
     };
 
     const handleViewSession = (session: Session) => {
-        setActiveSessionId(session.sessionId);
-        setQrCode(session.qr || null);
-        // Join room
-        socket?.emit('join-session', session.sessionId);
+        router.push(`/dashboard/sessions/${session.sessionId}`);
     }
-    
+
     // Simple QR renderer
     const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
-    
+
     useEffect(() => {
         if (qrCode) {
             QRCode.toDataURL(qrCode).then(setQrDataUrl);
@@ -122,35 +109,6 @@ export function SessionManager({ user }: { user: any }) {
             setQrDataUrl(null);
         }
     }, [qrCode]);
-
-    const [deleteSessionId, setDeleteSessionId] = useState<string | null>(null);
-
-    const handleDeleteClick = () => {
-        if (activeSessionId) {
-            setDeleteSessionId(activeSessionId);
-        }
-    };
-
-    const confirmDeleteSession = async () => {
-        if (!deleteSessionId) return;
-        
-        try {
-            // Standard DELETE via /settings endpoint as per API design
-            const res = await fetch(`/api/sessions/${deleteSessionId}/settings`, { method: 'DELETE' });
-            if (res.ok) {
-                toast.success("Session deleted");
-                setSessions(sessions.filter(s => s.sessionId !== deleteSessionId));
-                setActiveSessionId(null);
-                setQrCode(null);
-            } else {
-                toast.error("Failed to delete session");
-            }
-        } catch (error) {
-            toast.error("Failed to delete session");
-        } finally {
-            setDeleteSessionId(null);
-        }
-    };
 
 
     return (
@@ -161,10 +119,10 @@ export function SessionManager({ user }: { user: any }) {
                 </CardHeader>
                 <CardContent>
                     <div className="flex space-x-2 mb-4">
-                        <Input 
-                            value={newSessionName} 
-                            onChange={e => setNewSessionName(e.target.value)} 
-                            placeholder="New Session Name (e.g. Sales)" 
+                        <Input
+                            value={newSessionName}
+                            onChange={e => setNewSessionName(e.target.value)}
+                            placeholder="New Session Name (e.g. Sales)"
                         />
                         <Button onClick={createSession} disabled={loading}>
                             {loading ? 'Creating...' : 'Add'}
@@ -192,50 +150,14 @@ export function SessionManager({ user }: { user: any }) {
                     <CardTitle>Session Details</CardTitle>
                 </CardHeader>
                 <CardContent className="flex flex-col items-center justify-center min-h-[300px]">
-                    {activeSessionId ? (
-                        <>
-                            <h3 className="mb-4 font-semibold text-lg">{sessions.find(s => s.sessionId === activeSessionId)?.name}</h3>
-                            
-                            {qrDataUrl ? (
-                                <div className="text-center">
-                                    <img src={qrDataUrl} alt="QR Code" className="w-64 h-64 border p-2 mb-2" />
-                                    <p className="text-sm text-gray-500 animate-pulse">Scan with WhatsApp</p>
-                                </div>
-                            ) : (
-                                <div className="text-center">
-                                    {sessions.find(s => s.sessionId === activeSessionId)?.status === 'CONNECTED' ? (
-                                        <div className="text-green-600 font-bold text-xl">CONNECTED</div>
-                                    ) : (
-                                        <div className="text-gray-400">Waiting for QR or Connected...</div>
-                                    )}
-                                </div>
-                            )}
-                        </>
-                    ) : (
-                        <div className="text-gray-400">Select a session to manage</div>
-                    )}
+                    <div className="text-center text-gray-500">
+                        <p>Select a session to view details and controls.</p>
+                        <p className="text-xs mt-2">Click on a session in the list to manage it.</p>
+                    </div>
                 </CardContent>
-                {activeSessionId && (
-                     <CardFooter>
-                         <Button variant="destructive" className="w-full" onClick={handleDeleteClick}>Delete Session / Logout</Button>
-                     </CardFooter>
-                )}
             </Card>
 
-            <AlertDialog open={!!deleteSessionId} onOpenChange={(open) => !open && setDeleteSessionId(null)}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Session?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Are you sure you want to delete this session? This will disconnect the WhatsApp client and remove session data.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={confirmDeleteSession} className="bg-red-600 hover:bg-red-700">Delete</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+
         </div>
     );
 }

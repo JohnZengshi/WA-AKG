@@ -117,6 +117,61 @@ curl -X POST https://your-domain.com/api/sessions \
 
 ---
 
+### GET /api/sessions/{id}
+**Description**: Get detailed information about a specific session, including real-time status and uptime.
+
+**Path Parameters**:
+- `id` (string): The unique session ID (e.g., "sales-01")
+
+**Request Example**:
+```bash
+curl -X GET https://your-domain.com/api/sessions/sales-01 \
+  -H "X-API-Key: your-api-key"
+```
+
+**Response (200 OK)**:
+```json
+{
+  "id": "clx123abc",
+  "name": "Sales Bot",
+  "sessionId": "sales-01",
+  "status": "CONNECTED",
+  "userId": "user123",
+  "uptime": 3600, // seconds
+  "hasInstance": true,
+  "me": {
+      "id": "628123456789:1@s.whatsapp.net",
+      "name": "My Business"
+  },
+  "createdAt": "2024-01-15T10:30:00Z"
+}
+```
+
+---
+
+### POST /api/sessions/{id}/{action}
+**Description**: Perform an action on a session (start, stop, restart, logout).
+
+**Path Parameters**:
+- `id` (string): The unique session ID (e.g., "sales-01")
+- `action` (string): The action to perform. Valid values: `start`, `stop`, `restart`, `logout`.
+
+**Request Example**:
+```bash
+curl -X POST https://your-domain.com/api/sessions/sales-01/restart \
+  -H "X-API-Key: your-api-key"
+```
+
+**Response (200 OK)**:
+```json
+{
+  "success": true,
+  "message": "Session restarted successfully"
+}
+```
+
+---
+
 ### GET /api/sessions/{id}/qr
 **Description**: Get QR code for session pairing.
 

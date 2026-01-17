@@ -87,6 +87,46 @@ export class WhatsAppManager {
         }
         await prisma.session.delete({ where: { sessionId } });
     }
+
+    async stopSession(sessionId: string) {
+        const instance = this.sessions.get(sessionId);
+        if (instance) {
+            instance.socket?.end(undefined);
+            instance.status = "STOPPED";
+            this.io?.to(sessionId).emit("connection.update", { status: "STOPPED", qr: null });
+            await prisma.session.update({
+                where: { sessionId },
+                data: { status: "STOPPED" }
+            });
+        }
+    }
+
+    async startSession(sessionId: string) {
+        // If already running, do nothing
+        const existingInstance = this.sessions.get(sessionId);
+        if (existingInstance && existingInstance.status === "CONNECTED") {
+            return;
+        }
+
+        const session = await prisma.session.findUnique({ where: { sessionId } });
+        if (!session) throw new Error("Session not found");
+
+        // Re-initialize
+        let instance = this.sessions.get(sessionId);
+        if (!instance) {
+            instance = new WhatsAppInstance(sessionId, session.userId, this.io!);
+            this.sessions.set(sessionId, instance);
+        }
+        
+        await instance.init();
+    }
+
+    async restartSession(sessionId: string) {
+        await this.stopSession(sessionId);
+        // Small delay to ensure cleanup
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        await this.startSession(sessionId);
+    }
 }
 
 const globalForWhatsapp = global as unknown as { waManager: WhatsAppManager };

@@ -368,6 +368,63 @@ All endpoints require authentication via:
                         } 
                     }
                 },
+                "/sessions/{id}": {
+                    get: {
+                        tags: ["Sessions"],
+                        summary: "Get session details",
+                        description: "Get detailed information about a specific session including uptime and status",
+                        parameters: [
+                            { name: "id", in: "path", required: true, schema: { type: "string" } }
+                        ],
+                        responses: {
+                            200: {
+                                description: "Session details",
+                                content: {
+                                    "application/json": {
+                                        schema: {
+                                            allOf: [
+                                                { $ref: "#/components/schemas/Session" },
+                                                { 
+                                                    type: "object",
+                                                    properties: {
+                                                        uptime: { type: "integer", description: "Uptime in seconds" },
+                                                        messageCount: { type: "integer" },
+                                                        hasInstance: { type: "boolean" },
+                                                        me: { type: "object", nullable: true }
+                                                    }
+                                                }
+                                            ]
+                                        }
+                                    }
+                                }
+                            },
+                            404: { description: "Session not found" }
+                        }
+                    }
+                },
+                "/sessions/{id}/{action}": {
+                    post: {
+                        tags: ["Sessions"],
+                        summary: "Perform session action",
+                        description: "Start, stop, restart, or logout a session",
+                        parameters: [
+                            { name: "id", in: "path", required: true, schema: { type: "string" } },
+                            { name: "action", in: "path", required: true, schema: { type: "string", enum: ["start", "stop", "restart", "logout"] } }
+                        ],
+                        responses: {
+                            200: {
+                                description: "Action performed successfully",
+                                content: {
+                                    "application/json": {
+                                        schema: { $ref: "#/components/schemas/Success" }
+                                    }
+                                }
+                            },
+                            400: { description: "Invalid action" },
+                            500: { description: "Action failed" }
+                        }
+                    }
+                },
 
                 "/sessions/{id}/settings": {
                     patch: { 

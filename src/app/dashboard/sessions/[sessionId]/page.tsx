@@ -1,0 +1,254 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { toast } from "sonner";
+import { ArrowLeft, Play, Square, RotateCcw, LogOut, Power, Trash2, QrCode } from "lucide-react";
+import Link from "next/link";
+import { io, Socket } from "socket.io-client";
+import { QRCodeSVG } from "qrcode.react";
+
+type SessionDetail = {
+    id: string;
+    name: string;
+    sessionId: string;
+    status: string;
+    userId: string;
+    uptime: number; // in seconds
+    me?: {
+        id: string;
+        name: string;
+    };
+    hasInstance: boolean;
+};
+
+export default function SessionDetailPage() {
+    const params = useParams();
+    const router = useRouter();
+    const sessionId = params.sessionId as string;
+
+    const [session, setSession] = useState<SessionDetail | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [qrCode, setQrCode] = useState<string | null>(null);
+    const [socket, setSocket] = useState<Socket | null>(null);
+    const [uptime, setUptime] = useState(0);
+
+    const fetchSession = async () => {
+        try {
+            const res = await fetch(`/api/sessions/${sessionId}`);
+            if (!res.ok) {
+                if (res.status === 404) {
+                    toast.error("Session not found");
+                    router.push("/dashboard/sessions");
+                    return;
+                }
+                throw new Error("Failed to fetch");
+            }
+            const data = await res.json();
+            setSession(data);
+            setUptime(data.uptime || 0);
+        } catch (error) {
+            console.error(error);
+            toast.error("Failed to load session details");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchSession();
+
+        const socketInstance = io({
+            path: "/api/socket/io",
+            addTrailingSlash: false,
+        });
+
+        socketInstance.on("connect", () => {
+            console.log("Connected to socket");
+            socketInstance.emit("join-session", sessionId);
+        });
+
+        socketInstance.on("connection.update", (data: { status: string, qr: string }) => {
+            console.log("Socket update:", data);
+            setSession(prev => prev ? { ...prev, status: data.status } : null);
+            setQrCode(data.qr || null);
+
+            // Re-fetch full details on major status change (like connection) to get 'me' info
+            if (data.status === 'CONNECTED') {
+                fetchSession();
+            }
+        });
+
+        setSocket(socketInstance);
+
+        // Uptime counter
+        const interval = setInterval(() => {
+            setUptime(prev => prev + 1);
+        }, 1000);
+
+        return () => {
+            socketInstance.disconnect();
+            clearInterval(interval);
+        };
+    }, [sessionId]);
+
+    const performAction = async (action: string) => {
+        const loadingToast = toast.loading(` performing ${action}...`);
+        try {
+            const res = await fetch(`/api/sessions/${sessionId}/${action}`, {
+                method: "POST"
+            });
+            const data = await res.json();
+
+            if (!res.ok) throw new Error(data.error || "Action failed");
+
+            toast.success(data.message || "Success");
+
+            // Refresh logic
+            if (action === 'logout') {
+                setQrCode(null); // Will likely wait for scan-qr event
+            }
+            fetchSession();
+
+        } catch (error: any) {
+            toast.error(error.message);
+        } finally {
+            toast.dismiss(loadingToast);
+        }
+    };
+
+    const confirmDelete = async () => {
+        if (!confirm("Are you sure you want to delete this session entirely?")) return;
+
+        try {
+            const res = await fetch(`/api/sessions/${sessionId}/settings`, { method: 'DELETE' });
+            if (res.ok) {
+                toast.success("Session deleted");
+                router.push("/dashboard/sessions");
+            } else {
+                toast.error("Failed to delete");
+            }
+        } catch (e) {
+            toast.error("Error deleting session");
+        }
+    };
+
+    const formatUptime = (seconds: number) => {
+        if (!session?.status || session.status !== "CONNECTED") return "Offline";
+        const d = Math.floor(seconds / (3600 * 24));
+        const h = Math.floor((seconds % (3600 * 24)) / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = Math.floor(seconds % 60);
+        return `${d}d ${h}h ${m}m ${s}s`;
+    };
+
+    if (loading) return <div className="p-8">Loading...</div>;
+    if (!session) return <div className="p-8">Session not found</div>;
+
+    return (
+        <div className="max-w-4xl mx-auto space-y-6">
+            <div className="flex items-center space-x-4 mb-6">
+                <Button variant="ghost" asChild>
+                    <Link href="/dashboard/sessions">
+                        <ArrowLeft className="mr-2 h-4 w-4" /> Back to Sessions
+                    </Link>
+                </Button>
+                <h1 className="text-2xl font-bold">{session.name} <span className="text-gray-400 font-normal text-sm">({session.sessionId})</span></h1>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Status Card */}
+                <Card className="md:col-span-2">
+                    <CardHeader>
+                        <CardTitle className="flex items-center justify-between">
+                            Session Status
+                            <div className={`px-3 py-1 rounded-full text-xs font-bold ${session.status === 'CONNECTED' ? 'bg-green-100 text-green-700' :
+                                    session.status === 'STOPPED' ? 'bg-red-100 text-red-700' :
+                                        'bg-yellow-100 text-yellow-700'
+                                }`}>
+                                {session.status}
+                            </div>
+                        </CardTitle>
+                        <CardDescription>Real-time connection status and uptime.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="p-4 bg-gray-50 rounded-lg">
+                                <span className="text-sm text-gray-500 block">Uptime</span>
+                                <span className="text-xl font-mono font-medium">{formatUptime(uptime)}</span>
+                            </div>
+                            <div className="p-4 bg-gray-50 rounded-lg">
+                                <span className="text-sm text-gray-500 block">Connected As</span>
+                                <span className="text-lg font-medium truncate">{session.me?.name || session.me?.id || "-"}</span>
+                            </div>
+                        </div>
+
+                        {qrCode && (
+                            <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-lg bg-white">
+                                <QRCodeSVG value={qrCode} size={256} />
+                                <p className="mt-4 text-sm text-gray-500 animate-pulse">Scan with WhatsApp to connect</p>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+
+                {/* Actions Panel */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Controls</CardTitle>
+                        <CardDescription>Manage the active session.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                        <Button
+                            variant="outline"
+                            className="w-full justify-start text-green-600 hover:text-green-700 hover:bg-green-50"
+                            onClick={() => performAction('start')}
+                            disabled={session.status === 'CONNECTED' || session.status === 'SCAN_QR'}
+                        >
+                            <Play className="mr-2 h-4 w-4" /> Start Session
+                        </Button>
+
+                        <Button
+                            variant="outline"
+                            className="w-full justify-start text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                            onClick={() => performAction('restart')}
+                            disabled={!session.hasInstance && session.status !== 'CONNECTED'}
+                        >
+                            <RotateCcw className="mr-2 h-4 w-4" /> Restart Session
+                        </Button>
+
+                        <Button
+                            variant="outline"
+                            className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => performAction('stop')}
+                            disabled={session.status === 'STOPPED'}
+                        >
+                            <Square className="mr-2 h-4 w-4" /> Stop Session
+                        </Button>
+
+                        <div className="border-t my-4 pt-4 space-y-3">
+                            <Button
+                                variant="outline"
+                                className="w-full justify-start"
+                                onClick={() => performAction('logout')}
+                                disabled={session.status !== 'CONNECTED'}
+                            >
+                                <LogOut className="mr-2 h-4 w-4" /> Logout
+                            </Button>
+
+                            <Button
+                                variant="destructive"
+                                className="w-full justify-start"
+                                onClick={confirmDelete}
+                            >
+                                <Trash2 className="mr-2 h-4 w-4" /> Delete Session
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        </div>
+    );
+}
