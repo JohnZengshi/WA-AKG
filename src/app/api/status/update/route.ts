@@ -2,7 +2,6 @@ import { NextResponse, NextRequest } from "next/server";
 import { waManager } from "@/modules/whatsapp/manager";
 import { prisma } from "@/lib/prisma";
 import { getAuthenticatedUser, canAccessSession } from "@/lib/api-auth";
-import { generateWAMessageFromContent } from "@whiskeysockets/baileys";
 
 export async function POST(request: NextRequest) {
     try {
@@ -48,72 +47,45 @@ export async function POST(request: NextRequest) {
             // options.statusJidList = mentions; // specific distribution list
         }
         
-        // Use generateWAMessageFromContent for full control
-        let messageContent: any;
-
         if (type === 'TEXT') {
-            messageContent = { 
-                extendedTextMessage: {
-                    text: content,
-                    backgroundArgb: backgroundColor || 0xff000000,
-                    font: font || 0,
-                    contextInfo: {
-                        mentionedJid: mentions && Array.isArray(mentions) ? mentions : [],
-                        externalAdReply: { // Optional: Link preview-ish
-                            title: content,
-                            body: "",
-                            previewType: "PHOTO",
-                            thumbnailUrl: "", 
-                            sourceUrl: ""
-                        }
-                    }
-                }
+            const textContent: any = { 
+                text: content,
+                backgroundArgb: backgroundColor || 0xff000000,
+                font: font || 0
             };
-            // Clean up optional fields if empty
-            if (!messageContent.extendedTextMessage.contextInfo.externalAdReply.sourceUrl) {
-                delete messageContent.extendedTextMessage.contextInfo.externalAdReply;
+            if (mentions && Array.isArray(mentions) && mentions.length > 0) {
+                textContent.mentions = mentions;
             }
-
+            // Add externalAdReply if needed, but keeping it simple for now to ensure delivery
+            
+            await instance.socket.sendMessage(statusJid, textContent, { 
+                statusJidList: mentions && Array.isArray(mentions) && mentions.length > 0 ? mentions : undefined
+            });
+            
         } else if (type === 'IMAGE') {
             if (!mediaUrl) return NextResponse.json({ error: "Media URL required for image status" }, { status: 400 });
-            messageContent = {
+            
+            await instance.socket.sendMessage(statusJid, {
                 image: { url: mediaUrl },
-                caption: content
-            };
+                caption: content,
+                // mentions property on top level for media messages works in some versions, but better in options or context info if manually building
+            }, {
+                statusJidList: mentions && Array.isArray(mentions) && mentions.length > 0 ? mentions : undefined
+            });
+
         } else if (type === 'VIDEO') {
             if (!mediaUrl) return NextResponse.json({ error: "Media URL required for video status" }, { status: 400 });
-            messageContent = {
+            
+            await instance.socket.sendMessage(statusJid, {
                 video: { url: mediaUrl },
                 caption: content
-            };
+            }, {
+                statusJidList: mentions && Array.isArray(mentions) && mentions.length > 0 ? mentions : undefined
+            });
+
         } else {
              return NextResponse.json({ error: "Invalid status type" }, { status: 400 });
         }
-
-        const userJid = instance.socket.user?.id || (instance.socket.authState.creds.me?.id);
-        
-        if (!userJid) {
-             return NextResponse.json({ error: "Session not fully connected (User JID missing)" }, { status: 503 });
-        }
-
-        const msg = generateWAMessageFromContent(statusJid, messageContent, { 
-            userJid: userJid
-        });
-
-        console.log("Debug Status Update:", {
-            userJid,
-            statusJid,
-            messageContent: JSON.stringify(messageContent),
-            msgKey: msg.key
-        });
-
-        const messageId = await instance.socket.relayMessage(statusJid, msg.message!, { 
-            messageId: msg.key.id!, 
-            statusJidList: mentions && Array.isArray(mentions) && mentions.length > 0 ? mentions : undefined,
-            additionalNodes 
-        });
-        
-        console.log("Relay Message Result:", messageId);
         
         // Save to DB with correct session ID
         await prisma.story.create({
