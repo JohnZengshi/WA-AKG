@@ -49,14 +49,10 @@ export async function POST(request: NextRequest) {
         
         if (type === 'TEXT') {
             message = { 
-                extendedTextMessage: {
-                    text: content,
-                    backgroundArgb: backgroundColor || 0xff000000,
-                    font: font || 0,
-                    contextInfo: {
-                        mentionedJid: mentions && Array.isArray(mentions) ? mentions : []
-                    }
-                }
+                text: content,
+                backgroundArgb: backgroundColor || 0xff000000,
+                font: font || 0,
+                mentions: mentions && Array.isArray(mentions) ? mentions : undefined
             };
         } else if (type === 'IMAGE') {
             if (!mediaUrl) return NextResponse.json({ error: "Media URL required for image status" }, { status: 400 });
