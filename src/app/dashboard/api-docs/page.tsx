@@ -53,24 +53,15 @@ export default function ApiDocsPage() {
 
         // Messaging
         { category: "Messaging", method: "POST", path: "/api/messages/[sessionId]/send", description: "Send message", params: "Path: sessionId, Body: { jid, message }" },
-        { category: "Messaging", method: "POST", path: "/api/messages/poll", description: "Send poll", params: "Body: { sessionId, jid, poll }" },
-        { category: "Messaging", method: "POST", path: "/api/messages/list", description: "Send list message", params: "Body: { sessionId, jid, ... }" },
-        { category: "Messaging", method: "POST", path: "/api/messages/location", description: "Send location", params: "Body: { sessionId, jid, location }" },
-        { category: "Messaging", method: "POST", path: "/api/messages/contact", description: "Send contact", params: "Body: { sessionId, jid, vcard }" },
-        { category: "Messaging", method: "POST", path: "/api/messages/react", description: "Send reaction", params: "Body: { sessionId, jid, reaction }" },
-        { category: "Messaging", method: "POST", path: "/api/messages/forward", description: "Forward message", params: "Body: { sessionId, jid, messageId }" },
-        { category: "Messaging", method: "POST", path: "/api/messages/sticker", description: "Send sticker", params: "Body: { sessionId, jid, sticker } (multipart/form-data)" },
-        { category: "Messaging", method: "POST", path: "/api/messages/broadcast", description: "Broadcast message", params: "Body: { sessionId, jids[], message }" },
-        { category: "Messaging", method: "POST", path: "/api/messages/spam", description: "Report spam", params: "Body: { sessionId, jid }" },
-        { category: "Messaging", method: "DELETE", path: "/api/messages/delete", description: "Delete message", params: "Body: { sessionId, jid, messageId }" },
-
-        // Session Scoped Messaging
         { category: "Messaging", method: "POST", path: "/api/messages/[sessionId]/[jid]/list", description: "Send list message", params: "Path: sessionId, jid, Body: { ... }" },
         { category: "Messaging", method: "POST", path: "/api/messages/[sessionId]/[jid]/location", description: "Send location", params: "Path: sessionId, jid, Body: { location }" },
         { category: "Messaging", method: "POST", path: "/api/messages/[sessionId]/[jid]/poll", description: "Send poll", params: "Path: sessionId, jid, Body: { poll }" },
         { category: "Messaging", method: "POST", path: "/api/messages/[sessionId]/[jid]/spam", description: "Report spam", params: "Path: sessionId, jid" },
         { category: "Messaging", method: "POST", path: "/api/messages/[sessionId]/[jid]/sticker", description: "Send sticker", params: "Path: sessionId, jid, Body: { sticker }" },
         { category: "Messaging", method: "POST", path: "/api/messages/[sessionId]/[jid]/[messageId]/react", description: "Send reaction", params: "Path: sessionId, jid, messageId" },
+        { category: "Messaging", method: "POST", path: "/api/messages/[sessionId]/[jid]/contact", description: "Send contact", params: "Path: sessionId, jid, Body: { vcard }" },
+        { category: "Messaging", method: "POST", path: "/api/messages/[sessionId]/[jid]/forward", description: "Forward message", params: "Path: sessionId, jid, Body: { messageId }" },
+        { category: "Messaging", method: "POST", path: "/api/messages/[sessionId]/broadcast", description: "Broadcast message", params: "Path: sessionId, Body: { jids[], message }" },
         { category: "Messaging", method: "DELETE", path: "/api/messages/[sessionId]/[jid]/[messageId]", description: "Delete message", params: "Path: sessionId, jid, messageId" },
 
         { category: "Messaging", method: "GET", path: "/api/messages/[sessionId]/download/[messageId]/media", description: "Download media", params: "Path: sessionId, messageId" },
@@ -79,14 +70,14 @@ export default function ApiDocsPage() {
         // Chat
         { category: "Chat", method: "GET", path: "/api/chat/[sessionId]", description: "Get chats", params: "Path: sessionId, Query: page, limit" },
         { category: "Chat", method: "GET", path: "/api/chat/[sessionId]/[jid]", description: "Get specific chat", params: "Path: sessionId, jid, Query: limit" },
-        { category: "Chat", method: "POST", path: "/api/chat/check", description: "Check WhatsApp numbers", params: "Body: { sessionId, phones[] }" },
-        { category: "Chat", method: "PUT", path: "/api/chat/read", description: "Mark as read", params: "Body: { sessionId, jid }" },
-        { category: "Chat", method: "PUT", path: "/api/chat/archive", description: "Archive chat", params: "Body: { sessionId, jid, archive }" },
-        { category: "Chat", method: "POST", path: "/api/chat/presence", description: "Send presence", params: "Body: { sessionId, jid, presence }" },
-        { category: "Chat", method: "POST", path: "/api/chat/profile-picture", description: "Get profile picture", params: "Body: { sessionId, jid }" },
-        { category: "Chat", method: "PUT", path: "/api/chat/mute", description: "Mute chat", params: "Body: { sessionId, jid, mute }" },
-        { category: "Chat", method: "PUT", path: "/api/chat/pin", description: "Pin chat", params: "Body: { sessionId, jid, pin }" },
-        { category: "Chat", method: "GET", path: "/api/chats/by-label/[labelId]", description: "Filter by label", params: "Path: labelId, Query: sessionId" },
+        { category: "Chat", method: "POST", path: "/api/chat/[sessionId]/check", description: "Check WhatsApp numbers", params: "Path: sessionId, Body: { phones[] }" },
+        { category: "Chat", method: "PUT", path: "/api/chat/[sessionId]/[jid]/read", description: "Mark as read", params: "Path: sessionId, jid" },
+        { category: "Chat", method: "POST", path: "/api/chat/[sessionId]/[jid]/archive", description: "Archive chat", params: "Path: sessionId, jid, Body: { archive }" },
+        { category: "Chat", method: "POST", path: "/api/chat/[sessionId]/[jid]/presence", description: "Send presence", params: "Path: sessionId, jid, Body: { presence }" },
+        { category: "Chat", method: "POST", path: "/api/chat/[sessionId]/[jid]/profile-picture", description: "Get profile picture", params: "Path: sessionId, jid" },
+        { category: "Chat", method: "PUT", path: "/api/chat/[sessionId]/[jid]/mute", description: "Mute chat", params: "Path: sessionId, jid, Body: { mute }" },
+        { category: "Chat", method: "PUT", path: "/api/chat/[sessionId]/[jid]/pin", description: "Pin chat", params: "Path: sessionId, jid, Body: { pin }" },
+        { category: "Chat", method: "GET", path: "/api/chats/[sessionId]/by-label/[labelId]", description: "Filter by label", params: "Path: sessionId, labelId" },
 
         // Contacts
         { category: "Contacts", method: "GET", path: "/api/contacts/[sessionId]", description: "List contacts", params: "Path: sessionId, Query: search" },
@@ -140,7 +131,6 @@ export default function ApiDocsPage() {
         // System
         { category: "System", method: "GET", path: "/api/settings/system", description: "Get system settings", params: "-" },
         { category: "System", method: "POST", path: "/api/settings/system", description: "Update system settings", params: "Body: { appName, logoUrl, timezone }" },
-        { category: "System", method: "POST", path: "/api/status/update", description: "Update status", params: "Body: { status }" },
         { category: "System", method: "POST", path: "/api/status/[sessionId]/update", description: "Update status", params: "Path: sessionId, Body: { status }" },
         { category: "System", method: "GET", path: "/api/system/check-updates", description: "Check updates", params: "-" },
     ];
