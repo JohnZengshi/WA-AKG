@@ -38,13 +38,18 @@ export async function POST(
         // Convert File to Buffer
         const buffer = Buffer.from(await file.arrayBuffer());
 
+        const pack = formData.get("pack") as string || "WA-AKG";
+        const author = formData.get("author") as string || user.name || "User";
+        const type = (formData.get("type") as string) || "full";
+        const quality = parseInt(formData.get("quality") as string) || 50;
+
         // Create Sticker
         const sticker = new Sticker(buffer, {
-            pack: "WA-AKG",
-            author: user.name || "User",
-            type: "full",
+            pack,
+            author,
+            type: type as any,
             categories: ["🤩", "🎉"] as any,
-            quality: 50,
+            quality,
             background: "transparent"
         });
 

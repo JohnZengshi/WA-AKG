@@ -2233,6 +2233,44 @@ curl -X POST https://your-domain.com/api/autoreplies/sales-01 \
 
 ---
 
+### PUT /api/autoreplies/{sessionId}/{replyId}
+**Description**: Update an existing auto-reply rule.
+
+**Path Parameters**:
+- `sessionId` (string, required): Session ID
+- `replyId` (string, required): Rule ID
+
+**Request Body**:
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| keyword | string | Yes | Keyword to trigger response |
+| response | string | Yes | Message to send |
+| matchType | string | No | `exact`, `contains`, `startsWith`, `regex` (default: `exact`) |
+
+**Request Example**:
+```bash
+curl -X PUT https://your-domain.com/api/autoreplies/sales-01/reply123 \
+  -H "X-API-Key: your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "keyword": "hello",
+    "response": "Hi there! How can I help?",
+    "matchType": "contains"
+  }'
+```
+
+**Response (200 OK)**:
+```json
+{
+  "id": "reply123",
+  "sessionId": "sales-01",
+  "keyword": "hello",
+  "response": "Hi there! How can I help?",
+  "matchType": "contains",
+  "createdAt": "2024-01-01T00:00:00.000Z"
+}
+```
+
 ### DELETE /api/autoreplies/{sessionId}/{replyId}
 **Description**: Delete an auto-reply rule.
 
@@ -2454,6 +2492,43 @@ curl -X POST https://your-domain.com/api/scheduler/sales-01 \
 
 ---
 
+### PUT /api/scheduler/{sessionId}/{scheduleId}
+**Description**: Update a scheduled message.
+
+**Path Parameters**:
+- `sessionId` (string, required): Session ID
+- `scheduleId` (string, required): Schedule ID
+
+**Request Body**:
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| jid | string | Yes | Recipient JID |
+| content | string | Yes | Message content |
+| sendAt | string | Yes | Scheduled time (ISO 8601) |
+
+**Request Example**:
+```bash
+curl -X PUT https://your-domain.com/api/scheduler/sales-01/sched123 \
+  -H "X-API-Key: your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jid": "628123456789@s.whatsapp.net",
+    "content": "Updated message reminder",
+    "sendAt": "2024-01-02T10:00:00.000Z"
+  }'
+```
+
+**Response (200 OK)**:
+```json
+{
+  "id": "sched123",
+  "sessionId": "sales-01",
+  "jid": "628123456789@s.whatsapp.net",
+  "content": "Updated message reminder",
+  "sendAt": "2024-01-02T10:00:00.000Z"
+}
+```
+
 ### DELETE /api/scheduler/{sessionId}/{scheduleId}
 **Description**: Delete a scheduled message.
 
@@ -2571,12 +2646,15 @@ curl -X DELETE https://your-domain.com/api/scheduler/msg123 \
 
 ## 🔗 Webhooks
 
-### GET /api/webhooks
-**Description**: List all webhooks for the authenticated user.
+### GET /api/webhooks/{sessionId}
+**Description**: List all webhooks for a specific session.
+
+**Path Parameters**:
+- `sessionId` (string, required): Session ID
 
 **Request Example**:
 ```bash
-curl -X GET https://your-domain.com/api/webhooks \
+curl -X GET https://your-domain.com/api/webhooks/sales-01 \
   -H "X-API-Key: your-api-key"
 ```
 
@@ -2588,40 +2666,28 @@ curl -X GET https://your-domain.com/api/webhooks \
     "name": "CRM Integration",
     "url": "https://crm.example.com/webhook",
     "secret": "your-webhook-secret",
-    "events": ["message.upsert", "message.delete"],
+    "events": ["message.upsert"],
     "isActive": true,
-    "sessionId": "session-db-id",
-    "userId": "user123",
-    "createdAt": "2024-01-15T10:00:00.000Z",
-    "updatedAt": "2024-01-15T10:00:00.000Z"
+    "sessionId": "sales-01"
   }
 ]
 ```
 
-**Common Errors**:
-- `401`: Unauthorized.
-- `500`: Failed to fetch webhooks.
+### POST /api/webhooks/{sessionId}
+**Description**: Create a new webhook for a specific session.
 
----
-
-### POST /api/webhooks
-**Description**: Create a new webhook.
+**Path Parameters**:
+- `sessionId` (string, required): Session ID
 
 **Request Body**:
 - `name` (string, required): Webhook name
 - `url` (string, required): Webhook URL
 - `secret` (string, optional): Secret for signature verification
-- `sessionId` (string, optional): Filter by session ID
 - `events` (array, required): List of events to subscribe to
-
-**Available Events**:
-- `message.upsert`: New or updated message
-- `message.delete`: Message deleted
-- `message.update`: Message status updated
 
 **Request Example**:
 ```bash
-curl -X POST https://your-domain.com/api/webhooks \
+curl -X POST https://your-domain.com/api/webhooks/sales-01 \
   -H "Content-Type: application/json" \
   -H "X-API-Key: your-api-key" \
   -d '{
@@ -2631,47 +2697,23 @@ curl -X POST https://your-domain.com/api/webhooks \
   }'
 ```
 
-**Response (200 OK)**:
-```json
-{
-  "id": "webhook124",
-  "name": "CRM Integration",
-  "url": "https://crm.example.com/webhook",
-  "secret": null,
-  "events": ["message.upsert"],
-  "isActive": true,
-  "sessionId": null,
-  "userId": "user123",
-  "createdAt": "2024-01-17T02:40:00.000Z",
-  "updatedAt": "2024-01-17T02:40:00.000Z"
-}
-```
-
-**Common Errors**:
-- `400`: Missing required fields.
-- `401`: Unauthorized.
-- `404`: Session not found.
-- `500`: Failed to create webhook.
-
----
-
-### PATCH /api/webhooks/{id}
+### PUT /api/webhooks/{sessionId}/{id}
 **Description**: Update webhook configuration.
 
 **Path Parameters**:
+- `sessionId` (string, required): Session ID
 - `id` (string, required): Webhook ID
 
 **Request Body**:
 - `name` (string, optional): Updated name
 - `url` (string, optional): Updated URL
 - `secret` (string, optional): Updated secret
-- `sessionId` (string, optional): Associated session ID
 - `events` (array, optional): Updated event list
 - `isActive` (boolean, optional): Enable/disable webhook
 
 **Request Example**:
 ```bash
-curl -X PATCH https://your-domain.com/api/webhooks/webhook123 \
+curl -X PUT https://your-domain.com/api/webhooks/sales-01/webhook123 \
   -H "X-API-Key: your-api-key" \
   -H "Content-Type: application/json" \
   -d '{
@@ -2680,49 +2722,32 @@ curl -X PATCH https://your-domain.com/api/webhooks/webhook123 \
   }'
 ```
 
-**Response (200 OK)**:
-```json
-{
-  "id": "webhook123",
-  "name": "Updated CRM Integration",
-  "url": "https://crm.example.com/webhook",
-  "secret": "your-webhook-secret",
-  "events": ["message.upsert", "message.delete"],
-  "isActive": false,
-  "sessionId": "sales-01",
-  "userId": "user123",
-  "createdAt": "2024-01-15T10:00:00.000Z",
-  "updatedAt": "2024-01-17T03:00:00.000Z"
-}
-```
-
-**Common Errors**:
-- `400`: Invalid request body.
-- `401`: Unauthorized.
-- `404`: Webhook not found.
-- `500`: Failed to update webhook.
-
----
-
-### DELETE /api/webhooks/{id}
+### DELETE /api/webhooks/{sessionId}/{id}
 **Description**: Delete a webhook.
 
 **Path Parameters**:
+- `sessionId` (string, required): Session ID
 - `id` (string, required): Webhook ID
 
 **Request Example**:
 ```bash
-curl -X DELETE https://your-domain.com/api/webhooks/webhook123 \
+curl -X DELETE https://your-domain.com/api/webhooks/sales-01/webhook123 \
   -H "X-API-Key: your-api-key"
 ```
 
-**Response (200 OK)**:
-```json
-{
-  "success": true,
-  "message": "Webhook deleted"
-}
-```
+---
+
+### GET /api/webhooks (DEPRECATED)
+> **⚠️ DEPRECATED**: Use `GET /api/webhooks/{sessionId}` instead.
+
+### POST /api/webhooks (DEPRECATED)
+> **⚠️ DEPRECATED**: Use `POST /api/webhooks/{sessionId}` instead.
+
+### PATCH /api/webhooks/{id} (DEPRECATED)
+> **⚠️ DEPRECATED**: Use `PUT /api/webhooks/{sessionId}/{id}` instead.
+
+### DELETE /api/webhooks/{id} (DEPRECATED)
+> **⚠️ DEPRECATED**: Use `DELETE /api/webhooks/{sessionId}/{id}` instead.
 
 ---
 
@@ -3780,12 +3805,19 @@ curl -X POST https://your-domain.com/api/messages/spam \
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | file | file | Yes | Image file to convert (PNG, JPG, WEBP, GIF) |
+| pack | string | No | Sticker pack name (default: "WA-AKG") |
+| author | string | No | Sticker author name (default: "User") |
+| type | string | No | Crop type: `full`, `crop`, `circle` (default: `full`) |
+| quality | integer | No | Image quality 1-100 (default: 50) |
 
 **Request Example**:
 ```bash
 curl -X POST https://your-domain.com/api/messages/sales-01/628123456789%40s.whatsapp.net/sticker \
   -H "X-API-Key: your-api-key" \
-  -F "file=@/path/to/your/image.png"
+  -F "file=@/path/to/your/image.png" \
+  -F "pack=My Store" \
+  -F "author=Sales Bot" \
+  -F "quality=70"
 ```
 
 **Response (200 OK)**:

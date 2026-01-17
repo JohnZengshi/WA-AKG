@@ -2,6 +2,45 @@ import { NextResponse, NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthenticatedUser, canAccessSession } from "@/lib/api-auth";
 
+export async function PUT(
+    request: NextRequest,
+    { params }: { params: Promise<{ sessionId: string; replyId: string }> }
+) {
+    try {
+        const { sessionId, replyId } = await params;
+        const user = await getAuthenticatedUser(request);
+        if (!user) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        const canAccess = await canAccessSession(user.id, user.role, sessionId);
+        if (!canAccess) {
+            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        }
+
+        const body = await request.json();
+        const { keyword, response, matchType } = body;
+
+        if (!keyword || !response) {
+            return NextResponse.json({ error: "Keyword and response are required" }, { status: 400 });
+        }
+
+        const updated = await prisma.autoReply.update({
+            where: { id: replyId },
+            data: {
+                keyword,
+                response,
+                matchType: matchType || "exact"
+            }
+        });
+
+        return NextResponse.json(updated);
+    } catch (error) {
+        console.error("Update auto reply error:", error);
+        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    }
+}
+
 export async function DELETE(
     request: NextRequest,
     { params }: { params: Promise<{ sessionId: string; replyId: string }> }

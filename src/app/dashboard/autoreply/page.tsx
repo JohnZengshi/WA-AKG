@@ -48,6 +48,9 @@ export default function AutoReplyPage() {
 
     // Remove local listener
 
+    // Edit state
+    const [editingId, setEditingId] = useState<string | null>(null);
+
     useEffect(() => {
         if (selectedSessionId) {
             fetchRules(selectedSessionId);
@@ -74,12 +77,26 @@ export default function AutoReplyPage() {
         }
     };
 
-    const createRule = async () => {
+    const handleEdit = (rule: AutoReply) => {
+        setEditingId(rule.id);
+        setNewKeyword(rule.keyword);
+        setNewResponse(rule.response);
+        setNewMatchType(rule.matchType);
+        setShowForm(true);
+    };
+
+    const handleSaveRule = async () => {
         if (!selectedSessionId || !newKeyword || !newResponse) return;
 
         try {
-            const res = await fetch(`/api/autoreplies/${selectedSessionId}`, {
-                method: "POST",
+            const url = editingId
+                ? `/api/autoreplies/${selectedSessionId}/${editingId}`
+                : `/api/autoreplies/${selectedSessionId}`;
+
+            const method = editingId ? "PUT" : "POST";
+
+            const res = await fetch(url, {
+                method,
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     keyword: newKeyword,
@@ -89,16 +106,18 @@ export default function AutoReplyPage() {
             });
 
             if (res.ok) {
-                toast.success("Rule created");
+                toast.success(editingId ? "Rule updated" : "Rule created");
                 setShowForm(false);
                 setNewKeyword("");
                 setNewResponse("");
+                setNewMatchType("EXACT");
+                setEditingId(null);
                 fetchRules(selectedSessionId);
             } else {
-                toast.error("Failed to create rule");
+                toast.error(editingId ? "Failed to update rule" : "Failed to create rule");
             }
         } catch (error) {
-            toast.error("Failed to create rule");
+            toast.error("An error occurred");
         }
     };
 
@@ -140,7 +159,13 @@ export default function AutoReplyPage() {
                             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                             Refresh
                         </Button>
-                        <Button onClick={() => setShowForm(!showForm)} disabled={!selectedSessionId}>
+                        <Button onClick={() => {
+                            setEditingId(null);
+                            setNewKeyword("");
+                            setNewResponse("");
+                            setNewMatchType("EXACT");
+                            setShowForm(!showForm);
+                        }} disabled={!selectedSessionId}>
                             <Plus className="h-4 w-4 mr-2" /> Add Rule
                         </Button>
                     </div>
@@ -151,11 +176,11 @@ export default function AutoReplyPage() {
                     onSearch={setSearchTerm}
                 />
 
-                {/* New Rule Form */}
+                {/* New/Edit Rule Form */}
                 {showForm && (
                     <Card className="border-2 border-primary/20">
                         <CardHeader>
-                            <CardTitle>New Auto Reply Rule</CardTitle>
+                            <CardTitle>{editingId ? "Edit Auto Reply Rule" : "New Auto Reply Rule"}</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div className="grid grid-cols-2 gap-4">
@@ -191,8 +216,13 @@ export default function AutoReplyPage() {
                                 />
                             </div>
                             <div className="flex justify-end gap-2">
-                                <Button variant="ghost" onClick={() => setShowForm(false)}>Cancel</Button>
-                                <Button onClick={createRule}>Save</Button>
+                                <Button variant="ghost" onClick={() => {
+                                    setShowForm(false);
+                                    setEditingId(null);
+                                    setNewKeyword("");
+                                    setNewResponse("");
+                                }}>Cancel</Button>
+                                <Button onClick={handleSaveRule}>{editingId ? "Update" : "Save"}</Button>
                             </div>
                         </CardContent>
                     </Card>
@@ -217,9 +247,14 @@ export default function AutoReplyPage() {
                                         </div>
                                         <div className="text-sm text-muted-foreground mt-1">{rule.response}</div>
                                     </div>
-                                    <Button variant="ghost" size="icon" onClick={() => setDeleteId(rule.id)} className="text-destructive hover:text-destructive hover:bg-red-50">
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
+                                    <div className="flex gap-2">
+                                        <Button variant="ghost" size="sm" onClick={() => handleEdit(rule)}>
+                                            Edit
+                                        </Button>
+                                        <Button variant="ghost" size="icon" onClick={() => setDeleteId(rule.id)} className="text-destructive hover:text-destructive hover:bg-red-50">
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </div>
                                 </CardContent>
                             </Card>
                         ))}

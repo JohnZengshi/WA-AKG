@@ -1386,7 +1386,11 @@ All endpoints require authentication via:
                                         type: "object",
                                         required: ["file"],
                                         properties: {
-                                            file: { type: "string", format: "binary" }
+                                            file: { type: "string", format: "binary" },
+                                            pack: { type: "string", description: "Sticker pack name (default: WA-AKG)" },
+                                            author: { type: "string", description: "Sticker author name (default: User)" },
+                                            type: { type: "string", enum: ["full", "crop", "circle"], description: "Sticker crop type (default: full)" },
+                                            quality: { type: "integer", minimum: 1, maximum: 100, description: "Image quality (default: 50)" }
                                         }
                                     }
                                 }
@@ -2837,6 +2841,35 @@ All endpoints require authentication via:
                     }
                 },
                 "/autoreplies/{sessionId}/{replyId}": {
+                    put: {
+                        tags: ["Auto Reply"],
+                        summary: "Update auto-reply rule",
+                        parameters: [
+                            { name: "sessionId", in: "path", required: true, schema: { type: "string" } },
+                            { name: "replyId", in: "path", required: true, schema: { type: "string" } }
+                        ],
+                        requestBody: {
+                            content: {
+                                "application/json": {
+                                    schema: {
+                                        type: "object",
+                                        required: ["keyword", "response"],
+                                        properties: {
+                                            keyword: { type: "string" },
+                                            response: { type: "string" },
+                                            matchType: { type: "string", enum: ["EXACT", "CONTAINS", "STARTS_WITH", "REGEX"] }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        responses: {
+                            200: { description: "Rule updated" },
+                            401: { $ref: "#/components/responses/Unauthorized" },
+                            403: { $ref: "#/components/responses/Forbidden" },
+                            404: { description: "Rule not found" }
+                        }
+                    },
                     delete: { 
                         tags: ["Auto Reply"], 
                         summary: "Delete auto-reply rule", 
@@ -2984,6 +3017,35 @@ All endpoints require authentication via:
                     }
                 },
                 "/scheduler/{sessionId}/{scheduleId}": {
+                    put: {
+                        tags: ["Scheduler"],
+                        summary: "Update scheduled message",
+                        parameters: [
+                            { name: "sessionId", in: "path", required: true, schema: { type: "string" } },
+                            { name: "scheduleId", in: "path", required: true, schema: { type: "string" } }
+                        ],
+                        requestBody: {
+                            content: {
+                                "application/json": {
+                                    schema: {
+                                        type: "object",
+                                        required: ["jid", "content", "sendAt"],
+                                        properties: {
+                                            jid: { type: "string" },
+                                            content: { type: "string" },
+                                            sendAt: { type: "string", format: "date-time" }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        responses: {
+                            200: { description: "Message updated" },
+                            401: { $ref: "#/components/responses/Unauthorized" },
+                            403: { $ref: "#/components/responses/Forbidden" },
+                            404: { description: "Message not found" }
+                        }
+                    },
                     delete: { 
                         tags: ["Scheduler"], 
                         summary: "Delete scheduled message", 
@@ -3092,99 +3154,114 @@ All endpoints require authentication via:
                 },
 
                 // ==================== WEBHOOKS ====================
+                "/webhooks/{sessionId}": {
+                    get: {
+                        tags: ["Webhooks"],
+                        summary: "List webhooks for a session",
+                        parameters: [
+                            { name: "sessionId", in: "path", required: true, schema: { type: "string" } }
+                        ],
+                        responses: {
+                            200: { description: "List of webhooks" },
+                            401: { $ref: "#/components/responses/Unauthorized" },
+                            403: { $ref: "#/components/responses/Forbidden" }
+                        }
+                    },
+                    post: {
+                        tags: ["Webhooks"],
+                        summary: "Create a webhook",
+                        parameters: [
+                            { name: "sessionId", in: "path", required: true, schema: { type: "string" } }
+                        ],
+                        requestBody: {
+                            content: {
+                                "application/json": {
+                                    schema: {
+                                        type: "object",
+                                        required: ["name", "url", "events"],
+                                        properties: {
+                                            name: { type: "string" },
+                                            url: { type: "string" },
+                                            secret: { type: "string" },
+                                            events: { type: "array", items: { type: "string" } }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        responses: {
+                            200: { description: "Webhook created" },
+                            400: { description: "Invalid input" },
+                            401: { $ref: "#/components/responses/Unauthorized" },
+                            403: { $ref: "#/components/responses/Forbidden" }
+                        }
+                    }
+                },
+                "/webhooks/{sessionId}/{id}": {
+                    put: {
+                        tags: ["Webhooks"],
+                        summary: "Update webhook",
+                        parameters: [
+                            { name: "sessionId", in: "path", required: true, schema: { type: "string" } },
+                            { name: "id", in: "path", required: true, schema: { type: "string" } }
+                        ],
+                        requestBody: {
+                            content: {
+                                "application/json": {
+                                    schema: {
+                                        type: "object",
+                                        properties: {
+                                            name: { type: "string" },
+                                            url: { type: "string" },
+                                            secret: { type: "string" },
+                                            events: { type: "array", items: { type: "string" } },
+                                            isActive: { type: "boolean" }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        responses: {
+                            200: { description: "Webhook updated" },
+                            401: { $ref: "#/components/responses/Unauthorized" },
+                            403: { $ref: "#/components/responses/Forbidden" },
+                            404: { description: "Webhook not found" }
+                        }
+                    },
+                    delete: {
+                        tags: ["Webhooks"],
+                        summary: "Delete webhook",
+                        parameters: [
+                            { name: "sessionId", in: "path", required: true, schema: { type: "string" } },
+                            { name: "id", in: "path", required: true, schema: { type: "string" } }
+                        ],
+                        responses: {
+                            200: { description: "Webhook deleted" },
+                            401: { $ref: "#/components/responses/Unauthorized" },
+                            403: { $ref: "#/components/responses/Forbidden" },
+                            404: { description: "Webhook not found" }
+                        }
+                    }
+                },
                 "/webhooks": {
                     get: { 
                         tags: ["Webhooks"], 
-                        summary: "List webhooks", 
-                        responses: { 
-                            200: { 
-                                description: "List of user's webhooks",
-                                content: {
-                                    "application/json": {
-                                        schema: {
-                                            type: "array",
-                                            items: {
-                                                type: "object",
-                                                properties: {
-                                                    id: { type: "string" },
-                                                    name: { type: "string" },
-                                                    url: { type: "string" },
-                                                    secret: { type: "string", nullable: true },
-                                                    events: { type: "array", items: { type: "string" } },
-                                                    isActive: { type: "boolean" },
-                                                    sessionId: { type: "string", nullable: true },
-                                                    userId: { type: "string" },
-                                                    createdAt: { type: "string", format: "date-time" },
-                                                    updatedAt: { type: "string", format: "date-time" }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            },
-                            401: { $ref: "#/components/responses/Unauthorized" },
-                            500: { $ref: "#/components/responses/ServerError" }
-                        } 
+                        summary: "List webhooks (DEPRECATED)", 
+                        deprecated: true,
+                        responses: { 200: { description: "List of webhooks" } } 
                     },
                     post: { 
                         tags: ["Webhooks"], 
-                        summary: "Create webhook", 
-                        requestBody: { 
-                            content: { 
-                                "application/json": { 
-                                    schema: { 
-                                        type: "object", 
-                                        required: ["name", "url", "events"],
-                                        properties: {
-                                            name: { type: "string", example: "CRM Integration" },
-                                            url: { type: "string", format: "uri", example: "https://crm.example.com/webhook" },
-                                            secret: { type: "string", nullable: true },
-                                            sessionId: { type: "string", nullable: true, description: "Optional: filter by session" },
-                                            events: { 
-                                                type: "array", 
-                                                items: { type: "string" },
-                                                example: ["message.upsert", "message.delete"]
-                                            }
-                                        }
-                                    } 
-                                } 
-                            } 
-                        }, 
-                        responses: { 
-                            200: { 
-                                description: "Webhook created",
-                                content: {
-                                    "application/json": {
-                                        schema: {
-                                            type: "object",
-                                            properties: {
-                                                id: { type: "string" },
-                                                name: { type: "string" },
-                                                url: { type: "string" },
-                                                secret: { type: "string", nullable: true },
-                                                events: { type: "array", items: { type: "string" } },
-                                                isActive: { type: "boolean" },
-                                                sessionId: { type: "string", nullable: true },
-                                                userId: { type: "string" },
-                                                createdAt: { type: "string", format: "date-time" },
-                                                updatedAt: { type: "string", format: "date-time" }
-                                            }
-                                        }
-                                    }
-                                }
-                            },
-                            400: { $ref: "#/components/responses/BadRequest" },
-                            401: { $ref: "#/components/responses/Unauthorized" },
-                            404: { description: "Session not found" },
-                            500: { $ref: "#/components/responses/ServerError" }
-                        } 
+                        summary: "Create webhook (DEPRECATED)", 
+                        deprecated: true,
+                        responses: { 200: { description: "Webhook created" } } 
                     }
                 },
-
                 "/webhooks/{id}": {
                     patch: { 
                         tags: ["Webhooks"], 
-                        summary: "Update webhook", 
+                        summary: "Update webhook (DEPRECATED)", 
+                        deprecated: true,
                         parameters: [
                             { name: "id", in: "path", required: true, schema: { type: "string" } }
                         ], 

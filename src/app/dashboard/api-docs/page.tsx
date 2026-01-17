@@ -69,7 +69,7 @@ export default function ApiDocsPage() {
         { category: "Messaging", method: "POST", path: "/api/messages/[sessionId]/[jid]/location", description: "Send location", params: "Path: sessionId, jid, Body: { location }" },
         { category: "Messaging", method: "POST", path: "/api/messages/[sessionId]/[jid]/poll", description: "Send poll", params: "Path: sessionId, jid, Body: { poll }" },
         { category: "Messaging", method: "POST", path: "/api/messages/[sessionId]/[jid]/spam", description: "Report spam", params: "Path: sessionId, jid" },
-        { category: "Messaging", method: "POST", path: "/api/messages/[sessionId]/[jid]/sticker", description: "Send sticker", params: "Path: sessionId, jid, Body: { sticker }" },
+        { category: "Messaging", method: "POST", path: "/api/messages/[sessionId]/[jid]/sticker", description: "Send sticker", params: "Path: sessionId, jid, Body: { file, pack, author, type, quality } (multipart/form-data)" },
         { category: "Messaging", method: "POST", path: "/api/messages/[sessionId]/[jid]/[messageId]/react", description: "Send reaction", params: "Path: sessionId, jid, messageId" },
         { category: "Messaging", method: "POST", path: "/api/messages/[sessionId]/[jid]/contact", description: "Send contact", params: "Path: sessionId, jid, Body: { vcard }" },
         { category: "Messaging", method: "POST", path: "/api/messages/[sessionId]/[jid]/forward", description: "Forward message", params: "Path: sessionId, jid, Body: { messageId }" },

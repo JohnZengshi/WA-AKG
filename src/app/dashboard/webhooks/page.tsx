@@ -116,7 +116,19 @@ export default function WebhooksPage() {
         }
     };
 
-    const createWebhook = async () => {
+    // Edit state
+    const [editingId, setEditingId] = useState<string | null>(null);
+
+    const handleEdit = (webhook: WebhookConfig) => {
+        setEditingId(webhook.id);
+        setNewName(webhook.name);
+        setNewUrl(webhook.url);
+        setNewSecret(webhook.secret || "");
+        setNewEvents(webhook.events);
+        setShowNewForm(true);
+    };
+
+    const handleSaveWebhook = async () => {
         if (!newName || !newUrl || newEvents.length === 0) {
             toast.error("Name, URL, and at least one event are required");
             return;
@@ -128,31 +140,46 @@ export default function WebhooksPage() {
         }
 
         try {
-            const res = await fetch(`/api/webhooks/${sessionId}`, {
-                method: "POST",
+            const webhook = editingId ? webhooks.find(w => w.id === editingId) : null;
+            const targetSessionId = webhook?.sessionId || sessionId;
+
+            const url = editingId
+                ? `/api/webhooks/${targetSessionId}/${editingId}`
+                : `/api/webhooks/${sessionId}`;
+
+            const method = editingId ? "PUT" : "POST";
+
+            const payload: any = {
+                name: newName,
+                url: newUrl,
+                events: newEvents
+            };
+
+            // Only send secret if it's set or we are creating new
+            if (newSecret) {
+                payload.secret = newSecret;
+            }
+
+            const res = await fetch(url, {
+                method,
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    name: newName,
-                    url: newUrl,
-                    secret: newSecret || null,
-                    events: newEvents,
-                    // sessionId is now handled by the path parameter
-                })
+                body: JSON.stringify(payload)
             });
 
             if (res.ok) {
-                toast.success("Webhook created!");
+                toast.success(editingId ? "Webhook updated!" : "Webhook created!");
                 setShowNewForm(false);
                 setNewName("");
                 setNewUrl("");
                 setNewSecret("");
                 setNewEvents(["message.received", "message.sent"]);
+                setEditingId(null);
                 fetchWebhooks();
             } else {
-                toast.error("Failed to create webhook");
+                toast.error(editingId ? "Failed to update webhook" : "Failed to create webhook");
             }
         } catch (error) {
-            toast.error("Failed to create webhook");
+            toast.error("An error occurred");
         }
     };
 
@@ -287,7 +314,14 @@ export default function WebhooksPage() {
                                 </span>
                             </CardDescription>
                         </div>
-                        <Button onClick={() => setShowNewForm(!showNewForm)} disabled={!sessionId}>
+                        <Button onClick={() => {
+                            setEditingId(null);
+                            setNewName("");
+                            setNewUrl("");
+                            setNewSecret("");
+                            setNewEvents(["message.received", "message.sent"]);
+                            setShowNewForm(!showNewForm);
+                        }} disabled={!sessionId}>
                             <Plus className="h-4 w-4 mr-2" /> Add Webhook
                         </Button>
                     </div>
@@ -302,6 +336,9 @@ export default function WebhooksPage() {
                     {/* New Webhook Form */}
                     {showNewForm && (
                         <Card className="border-dashed border-2">
+                            <CardHeader>
+                                <CardTitle>{editingId ? "Edit Webhook" : "New Webhook"}</CardTitle>
+                            </CardHeader>
                             <CardContent className="pt-4 space-y-4">
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">
@@ -353,8 +390,15 @@ export default function WebhooksPage() {
                                     </div>
                                 </div>
                                 <div className="flex gap-2 justify-end">
-                                    <Button variant="ghost" onClick={() => setShowNewForm(false)}>Cancel</Button>
-                                    <Button onClick={createWebhook}>Create Webhook</Button>
+                                    <Button variant="ghost" onClick={() => {
+                                        setShowNewForm(false);
+                                        setEditingId(null);
+                                        // Reset fields? or keep for re-open if needed? Better reset.
+                                        setNewName("");
+                                        setNewUrl("");
+                                        setNewSecret("");
+                                    }}>Cancel</Button>
+                                    <Button onClick={handleSaveWebhook}>{editingId ? "Update Webhook" : "Create Webhook"}</Button>
                                 </div>
                             </CardContent>
                         </Card>
@@ -391,6 +435,9 @@ export default function WebhooksPage() {
                                                 checked={webhook.isActive}
                                                 onCheckedChange={(checked) => toggleWebhookActive(webhook.id, checked)}
                                             />
+                                            <Button variant="ghost" size="sm" onClick={() => handleEdit(webhook)}>
+                                                Edit
+                                            </Button>
                                             <Button variant="ghost" size="icon" onClick={() => deleteWebhook(webhook.id)}>
                                                 <Trash2 className="h-4 w-4 text-destructive" />
                                             </Button>
