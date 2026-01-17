@@ -474,7 +474,7 @@ All endpoints require authentication via:
                     post: { 
                         tags: ["Messaging (Deprecated)"], 
                         summary: "[DEPRECATED] Send message (text/media/sticker)", 
-                        description: "⚠️ **DEPRECATED**: Use POST /chat/{sessionId}/send instead. This endpoint will be removed in a future version.\\n\\nUniversal endpoint for sending text, images, videos, documents, and stickers",
+                        description: "⚠️ **DEPRECATED**: Use POST /messages/{sessionId}/send instead. This endpoint will be removed in a future version.\\n\\nUniversal endpoint for sending text, images, videos, documents, and stickers",
                         deprecated: true,
                         requestBody: { 
                             required: true,
@@ -564,6 +564,41 @@ All endpoints require authentication via:
                 },
                 
                 "/chat/{sessionId}/send": {
+                    post: { 
+                        tags: ["Messaging (Deprecated)"], 
+                        summary: "[DEPRECATED] Send message", 
+                        description: "⚠️ **DEPRECATED**: Use POST /messages/{sessionId}/send instead.",
+                        deprecated: true,
+                        parameters: [
+                            { 
+                                name: "sessionId", 
+                                in: "path", 
+                                required: true, 
+                                schema: { type: "string" }
+                            }
+                        ],
+                        requestBody: { 
+                            required: true, 
+                            content: { 
+                                "application/json": { 
+                                    schema: { 
+                                        type: "object", 
+                                        required: ["jid", "message"],
+                                        properties: {
+                                            jid: { type: "string" },
+                                            message: { type: "object" }
+                                        }
+                                    } 
+                                } 
+                            } 
+                        },
+                        responses: { 
+                             200: { description: "Message sent" }
+                        }
+                    }
+                },
+
+                "/messages/{sessionId}/send": {
                     post: { 
                         tags: ["Messaging"], 
                         summary: "Send message (text/media/sticker)", 

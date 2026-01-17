@@ -355,7 +355,7 @@ curl -X DELETE https://your-domain.com/api/sessions/sales-01/settings \
 
 ## 💬 Messaging
 
-### POST /api/chat/{sessionId}/send
+### POST /api/messages/{sessionId}/send
 **Description**: Send text, media, or sticker messages.
 
 **Path Parameters**:
@@ -401,7 +401,7 @@ curl -X DELETE https://your-domain.com/api/sessions/sales-01/settings \
 
 **Request Example**:
 ```bash
-curl -X POST https://your-domain.com/api/chat/sales-01/send \
+curl -X POST https://your-domain.com/api/messages/sales-01/send \
   -H "Content-Type: application/json" \
   -H "X-API-Key: your-api-key" \
   -d '{
@@ -421,8 +421,15 @@ curl -X POST https://your-domain.com/api/chat/sales-01/send \
 
 ---
 
+### POST /api/chat/{sessionId}/send (DEPRECATED)
+> **⚠️ DEPRECATED**: This endpoint is deprecated. Use `POST /api/messages/{sessionId}/send` instead. This endpoint will be removed in a future version.
+
+**Description**: Legacy endpoint for sending messages.
+
+---
+
 ### POST /api/chat/send (DEPRECATED)
-> **⚠️ DEPRECATED**: This endpoint is deprecated. Use `POST /api/chat/{sessionId}/send` instead. This endpoint will be removed in a future version.
+> **⚠️ DEPRECATED**: This endpoint is deprecated. Use `POST /api/messages/{sessionId}/send` instead. This endpoint will be removed in a future version.
 
 **Description**: Send text, media, or sticker messages.
 

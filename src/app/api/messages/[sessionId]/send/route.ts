@@ -7,7 +7,6 @@ export async function POST(
     request: NextRequest,
     { params }: { params: Promise<{ sessionId: string }> }
 ) {
-    console.warn('[DEPRECATED] POST /api/chat/[sessionId]/send is deprecated. Use POST /api/messages/[sessionId]/send instead.');
     try {
         const user = await getAuthenticatedUser(request);
         if (!user) {
@@ -74,7 +73,7 @@ export async function POST(
 
         await socket.sendMessage(jid, msgPayload, { mentions: mentions || [] } as any);
 
-        return NextResponse.json({ success: true });
+        return NextResponse.json({ success: true, message: "Message sent successfully" });
     } catch (error) {
         console.error("Send message error:", error);
         return NextResponse.json({ error: "Failed to send message" }, { status: 500 });

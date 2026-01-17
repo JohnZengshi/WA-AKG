@@ -52,7 +52,7 @@ export default function ApiDocsPage() {
         { category: "Profile", method: "DELETE", path: "/api/profile/[sessionId]/picture", description: "Remove picture", params: "Path: sessionId" },
 
         // Messaging
-        { category: "Messaging", method: "POST", path: "/api/chat/send", description: "Send message", params: "Body: { sessionId, jid, message }" },
+        { category: "Messaging", method: "POST", path: "/api/messages/[sessionId]/send", description: "Send message", params: "Path: sessionId, Body: { jid, message }" },
         { category: "Messaging", method: "POST", path: "/api/messages/poll", description: "Send poll", params: "Body: { sessionId, jid, poll }" },
         { category: "Messaging", method: "POST", path: "/api/messages/list", description: "Send list message", params: "Body: { sessionId, jid, ... }" },
         { category: "Messaging", method: "POST", path: "/api/messages/location", description: "Send location", params: "Body: { sessionId, jid, location }" },
