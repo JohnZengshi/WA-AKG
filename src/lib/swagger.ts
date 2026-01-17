@@ -468,6 +468,15 @@ All endpoints require authentication via:
                                                     caption: "New product available!"
                                                 }
                                             }
+                                        },
+                                        withMention: {
+                                            summary: "Message with Mention",
+                                            value: {
+                                                sessionId: "sales-01",
+                                                jid: "120363123456789@g.us",
+                                                message: { text: "Hello @628123456789, welcome!" },
+                                                mentions: ["628123456789@s.whatsapp.net"]
+                                            }
                                         }
                                     }
                                 } 
@@ -2814,7 +2823,42 @@ All endpoints require authentication via:
                                             type: { type: "string", enum: ["TEXT", "IMAGE", "VIDEO"], default: "TEXT" },
                                             mediaUrl: { type: "string", description: "Required for IMAGE and VIDEO" },
                                             backgroundColor: { type: "integer", description: "ARGB color for TEXT status" },
-                                            font: { type: "integer", description: "Font style for TEXT status" }
+                                            font: { type: "integer", description: "Font style for TEXT status" },
+                                            mentions: { 
+                                                type: "array", 
+                                                items: { type: "string" },
+                                                description: "List of JIDs to mention/tag in the status"
+                                            }
+                                        }
+                                    },
+                                    examples: {
+                                        simple: {
+                                            summary: "Simple Text Status",
+                                            value: {
+                                                sessionId: "sales-01",
+                                                content: "Hello World!",
+                                                type: "TEXT",
+                                                backgroundColor: 4278190080
+                                            }
+                                        },
+                                        withMention: {
+                                            summary: "Status with Mention",
+                                            value: {
+                                                sessionId: "sales-01",
+                                                content: "Check this out @628123456789",
+                                                type: "TEXT",
+                                                backgroundColor: 4278190080,
+                                                mentions: ["628123456789@s.whatsapp.net"]
+                                            }
+                                        },
+                                        image: {
+                                            summary: "Image Status",
+                                            value: {
+                                                sessionId: "sales-01",
+                                                content: "Our new product!",
+                                                type: "IMAGE",
+                                                mediaUrl: "https://example.com/product.jpg"
+                                            }
                                         }
                                     }
                                 }

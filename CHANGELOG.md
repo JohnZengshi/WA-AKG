@@ -4,8 +4,22 @@
 
 ### Added
 - **Group Mentions**: Added support for `@mention` in group chats via `/api/chat/send`.
+    ```json
+    {
+      "jid": "123456@g.us",
+      "message": { "text": "Hello @62812..." },
+      "mentions": ["628123456789@s.whatsapp.net"]
+    }
+    ```
 - **Status Mentions**: Added support for tagging users in status updates (Stories) via `/api/status/update`.
+    ```json
+    {
+      "content": "Check this out",
+      "mentions": ["628123456789@s.whatsapp.net"]
+    }
+    ```
 - **Group Details API**: New endpoint `GET /api/groups/{jid}` to fetch full group metadata (participants, description, admin status) and profile picture.
+    - Returns: `subject`, `desc`, `participants` (with admin status), `pictureUrl`, etc.
 - **Documentation**: Updated Swagger and Markdown docs to reflect these changes.
 
 ## [v1.1.2] - 2026-01-17
