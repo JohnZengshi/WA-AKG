@@ -1,5 +1,20 @@
 # Changelog
 
+## [v1.1.3-beta.2] - 2026-01-17
+### Added
+- **Session Management Dashboard**: New dashboard page (`/dashboard/sessions/[id]`) for comprehensive session control.
+- **Session Actions**: Ability to Start, Stop, Restart, and Logout sessions directly from UI.
+- **Real-time Status**: Live uptime counter and status updates (Connected, Stopped, Scanning QR).
+- **API Endpoints**:
+    - `GET /api/sessions/{id}`: Detailed session info including uptime.
+    - `POST /api/sessions/{id}/{action}`: Control session lifecycle (start/stop/restart/logout).
+- **Documentation**: Updated Swagger and API Documentation with new endpoints.
+
+### Fixed
+- **Session Loop**: Fixed issue where stopped sessions would auto-reconnect indefinitely.
+- **Logout Cleanup**: Fixed issue where QR code wouldn't reappear after logout due to stale credentials.
+- **API Cleanups**: Resolved proper parameter naming (`{id}` vs `{sessionId}`) in API routes.
+
 ## [beta-v1.1.3.1] - 2026-01-17
 
 ### Added
