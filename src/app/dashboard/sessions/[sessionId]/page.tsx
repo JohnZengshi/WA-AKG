@@ -48,6 +48,7 @@ export default function SessionDetailPage() {
             }
             const data = await res.json();
             setSession(data);
+            setQrCode(data.qr || null);
             setUptime(data.uptime || 0);
         } catch (error) {
             console.error(error);
@@ -165,8 +166,8 @@ export default function SessionDetailPage() {
                         <CardTitle className="flex items-center justify-between">
                             Session Status
                             <div className={`px-3 py-1 rounded-full text-xs font-bold ${session.status === 'CONNECTED' ? 'bg-green-100 text-green-700' :
-                                    session.status === 'STOPPED' ? 'bg-red-100 text-red-700' :
-                                        'bg-yellow-100 text-yellow-700'
+                                session.status === 'STOPPED' ? 'bg-red-100 text-red-700' :
+                                    'bg-yellow-100 text-yellow-700'
                                 }`}>
                                 {session.status}
                             </div>

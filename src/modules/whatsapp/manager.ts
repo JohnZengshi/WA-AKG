@@ -91,6 +91,7 @@ export class WhatsAppManager {
     async stopSession(sessionId: string) {
         const instance = this.sessions.get(sessionId);
         if (instance) {
+            instance.isStopped = true; // Prevent auto-reconnect
             instance.socket?.end(undefined);
             instance.status = "STOPPED";
             this.io?.to(sessionId).emit("connection.update", { status: "STOPPED", qr: null });

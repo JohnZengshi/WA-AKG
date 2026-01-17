@@ -26,6 +26,8 @@ export class WhatsAppInstance {
     config: any = {};
     startTime: Date | null = null;
 
+    isStopped: boolean = false;
+
     constructor(sessionId: string, userId: string, io: Server) {
         this.sessionId = sessionId;
         this.userId = userId;
@@ -33,6 +35,7 @@ export class WhatsAppInstance {
     }
 
     async init() {
+        this.isStopped = false; // Reset stop flag on init
         const sessionData = await prisma.session.findUnique({ where: { sessionId: this.sessionId } });
         this.config = sessionData?.config || {};
         
@@ -70,6 +73,7 @@ export class WhatsAppInstance {
 
         try {
             if (qr) {
+                if (this.isStopped) return; // Don't emit QR if stopped
                 this.qr = qr;
                 this.status = "SCAN_QR";
                 
@@ -85,16 +89,17 @@ export class WhatsAppInstance {
             
             if (connection === "close") {
                 const code = (lastDisconnect?.error as any)?.output?.statusCode;
-                const shouldReconnect = code !== DisconnectReason.loggedOut;
+                // Only reconnect if NOT logged out AND NOT explicitly stopped
+                const shouldReconnect = code !== DisconnectReason.loggedOut && !this.isStopped;
                 
-                this.status = "DISCONNECTED";
+                this.status = this.isStopped ? "STOPPED" : "DISCONNECTED";
                  this.io?.to(this.sessionId).emit("connection.update", { status: this.status, qr: null });
                  
                  // Use try-catch specifically for update as session might be deleted
                  try {
                      await prisma.session.update({
                         where: { sessionId: this.sessionId },
-                        data: { status: "DISCONNECTED", qr: null }
+                        data: { status: this.status, qr: null }
                     });
                  } catch (e) {
                      // Ignore if session not found (deleted)
@@ -103,14 +108,19 @@ export class WhatsAppInstance {
                 if (shouldReconnect) {
                     this.init();
                 } else {
-                     console.log(`Session ${this.sessionId} logged out. Deleting...`);
-                     try {
-                         await prisma.session.update({
-                            where: { sessionId: this.sessionId },
-                            data: { status: "LOGGED_OUT", qr: null }
-                         });
-                     } catch (e) { /* ignore */ }
-                     this.socket = null;
+                     if (!this.isStopped) {
+                         console.log(`Session ${this.sessionId} logged out. Deleting...`);
+                         try {
+                             await prisma.session.update({
+                                where: { sessionId: this.sessionId },
+                                data: { status: "LOGGED_OUT", qr: null }
+                             });
+                         } catch (e) { /* ignore */ }
+                         this.socket = null;
+                     } else {
+                         console.log(`Session ${this.sessionId} stopped gracefully.`);
+                         this.socket = null;
+                     }
                 }
             }
 
