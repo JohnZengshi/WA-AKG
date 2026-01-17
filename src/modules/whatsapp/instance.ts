@@ -108,21 +108,25 @@ export class WhatsAppInstance {
                 if (shouldReconnect) {
                     this.init();
                 } else {
-                     if (!this.isStopped) {
-                         console.log(`Session ${this.sessionId} logged out. Deleting...`);
+                         console.log(`Session ${this.sessionId} logged out. Cleaning up...`);
                          try {
-                             await prisma.session.update({
-                                where: { sessionId: this.sessionId },
-                                data: { status: "LOGGED_OUT", qr: null }
-                             });
+                             await prisma.$transaction([
+                                 prisma.session.update({
+                                    where: { sessionId: this.sessionId },
+                                    data: { status: "LOGGED_OUT", qr: null }
+                                 }),
+                                 prisma.authState.deleteMany({
+                                     where: { sessionId: this.sessionId }
+                                 })
+                             ]);
                          } catch (e) { /* ignore */ }
                          this.socket = null;
-                     } else {
+                         this.config = {}; // Clear config cache if needed
                          console.log(`Session ${this.sessionId} stopped gracefully.`);
                          this.socket = null;
                      }
                 }
-            }
+
 
             if (connection === "open") {
                 this.status = "CONNECTED";
