@@ -2,6 +2,7 @@ import { NextResponse, NextRequest } from "next/server";
 import { waManager } from "@/modules/whatsapp/manager";
 import { prisma } from "@/lib/prisma";
 import { getAuthenticatedUser, canAccessSession } from "@/lib/api-auth";
+import { generateWAMessageFromContent } from "@whiskeysockets/baileys";
 
 export async function POST(request: NextRequest) {
     try {
@@ -39,30 +40,49 @@ export async function POST(request: NextRequest) {
         }
 
         const statusJid = 'status@broadcast';
-
-        let message: any = {};
-        let options: any = {};
+        let additionalNodes: any[] = [];
 
         if (mentions && Array.isArray(mentions) && mentions.length > 0) {
-            options.statusJidList = mentions;
+            // For status, mentions might need to be handled carefully in broadcast list if privacy is involved
+            // But standard mentions:
+            // options.statusJidList = mentions; // specific distribution list
         }
         
+        // Use generateWAMessageFromContent for full control
+        let messageContent: any;
+
         if (type === 'TEXT') {
-            message = { 
-                text: content,
-                backgroundArgb: backgroundColor || 0xff000000,
-                font: font || 0,
-                mentions: mentions && Array.isArray(mentions) ? mentions : undefined
+            messageContent = { 
+                extendedTextMessage: {
+                    text: content,
+                    backgroundArgb: backgroundColor || 0xff000000,
+                    font: font || 0,
+                    contextInfo: {
+                        mentionedJid: mentions && Array.isArray(mentions) ? mentions : [],
+                        externalAdReply: { // Optional: Link preview-ish
+                            title: content,
+                            body: "",
+                            previewType: "PHOTO",
+                            thumbnailUrl: "", 
+                            sourceUrl: ""
+                        }
+                    }
+                }
             };
+            // Clean up optional fields if empty
+            if (!messageContent.extendedTextMessage.contextInfo.externalAdReply.sourceUrl) {
+                delete messageContent.extendedTextMessage.contextInfo.externalAdReply;
+            }
+
         } else if (type === 'IMAGE') {
             if (!mediaUrl) return NextResponse.json({ error: "Media URL required for image status" }, { status: 400 });
-            message = {
+            messageContent = {
                 image: { url: mediaUrl },
                 caption: content
             };
         } else if (type === 'VIDEO') {
             if (!mediaUrl) return NextResponse.json({ error: "Media URL required for video status" }, { status: 400 });
-            message = {
+            messageContent = {
                 video: { url: mediaUrl },
                 caption: content
             };
@@ -70,11 +90,15 @@ export async function POST(request: NextRequest) {
              return NextResponse.json({ error: "Invalid status type" }, { status: 400 });
         }
 
-        if (Object.keys(message).length === 0) {
-             return NextResponse.json({ error: "Failed to construct message" }, { status: 500 });
-        }
+        const msg = generateWAMessageFromContent(statusJid, messageContent, { 
+            userJid: instance.userId ? (instance.userId.includes(':') ? instance.userId.split(':')[0] + '@s.whatsapp.net' : instance.userId) : instance.socket.user?.id! 
+        });
 
-        await instance.socket.sendMessage(statusJid, message, options);
+        await instance.socket.relayMessage(statusJid, msg.message!, { 
+            messageId: msg.key.id!, 
+            statusJidList: mentions && Array.isArray(mentions) && mentions.length > 0 ? mentions : [] ,
+            additionalNodes 
+        });
         
         // Save to DB with correct session ID
         await prisma.story.create({
