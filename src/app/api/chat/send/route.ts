@@ -3,6 +3,10 @@ import { waManager } from "@/modules/whatsapp/manager";
 import { getAuthenticatedUser, canAccessSession } from "@/lib/api-auth";
 import Sticker from "wa-sticker-formatter";
 
+/**
+ * @deprecated This endpoint is deprecated. Use POST /api/chat/{sessionId}/send instead.
+ * This endpoint will be removed in a future version.
+ */
 export async function POST(request: NextRequest) {
     try {
         const user = await getAuthenticatedUser(request);
@@ -11,7 +15,10 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { sessionId, jid, message } = body;
+        const { sessionId, jid, message, mentions } = body;
+
+        // Log deprecation warning
+        console.warn('[DEPRECATED] POST /api/chat/send is deprecated. Use POST /api/messages/[sessionId]/[jid]/send instead.');
 
         if (!sessionId || !jid || !message) {
             return NextResponse.json({ error: "sessionId, jid, and message are required" }, { status: 400 });
@@ -62,7 +69,12 @@ export async function POST(request: NextRequest) {
         }
 
         // Send Message
-        await socket.sendMessage(jid, msgPayload);
+        // Ensure mentions are passed in options and also in message content if it's a text message
+        if (msgPayload.text && mentions && Array.isArray(mentions)) {
+             msgPayload.mentions = mentions;
+        }
+
+        await socket.sendMessage(jid, msgPayload, { mentions: mentions || [] } as any);
 
         return NextResponse.json({ success: true });
     } catch (error) {

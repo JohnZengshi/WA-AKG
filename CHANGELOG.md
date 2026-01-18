@@ -1,46 +1,43 @@
-# Changelog
 
-## [v1.1.2] - 2026-01-17
-
-### Added
-- **API Documentation Audit & Refinement**:
-    - **Method Standardization**: Systematically verified all 86 API routes and corrected HTTP methods to match actual implementation (e.g., changed mislabeled `PUT` to `PATCH`, and `GET` to `POST` for action-based endpoints).
-    - **OpenAPI Schema Enrichment**: Added comprehensive JSON request and response schemas for all 86 endpoints in `src/lib/swagger.ts`, including nested object structures and detailed field descriptions.
-    - **Error Response Documentation**: Added explicitly documented common error responses (`400`, `401`, `403`, `404`, `500`) with example bodies for key modules.
-    - **Ghost Removal**: Cleaned up documentation by removing unimplemented or legacy API methods (e.g., ghost `GET` or `PUT` methods that were not present in the codebase).
-    - **Synchronization**: Ensured 1:1 parity between `docs/API_DOCUMENTATION.md` and the interactive Swagger UI.
-
-### Fixed
-- **Endpoint Accuracy**: Corrected several response structures and field names in the documentation to ensure they perfectly match the Prisma model outputs and API handlers.
-- **Improved Examples**: Standardized date formats to ISO 8601 and refined cURL examples for better copy-paste compatibility.
-
-## [beta-v1.1.0.2] - 2026-01-17
+## [v1.2.0] - 2026-01-18
 
 ### Added
-- **Comprehensive API Documentation**:
-    - **Full Coverage**: Documented all **86 API endpoints** in `docs/API_DOCUMENTATION.md`, covering Sessions, Messaging, Groups, Contacts, Labels, Scheduler, Auto Reply, Webhooks, Users, and System modules.
-    - **OpenAPI 3.0 Support**: Completely rewrote `src/lib/swagger.ts` to provide a full OpenAPI 3.0 specification.
-    - **Detailed Examples**: Added copy-paste ready cURL examples and JSON request/response bodies for every endpoint.
-    - **Guides**: Added new sections for "Parameter Quick Reference", "Validation Limits", "Error Responses", and "Best Practices".
-- **Swagger UI Integration**:
-    - Verified and synchronized the `/dashboard/api-docs` page to correctly display the full 86-endpoint specification.
-- **Route Tracking**:
-    - Updated `all_routes.txt` to accurately track 86 HTTP endpoints across 64 route files.
+- **Major API Refactoring & Standardization**: 
+    - **RESTful Architecture**: Completely refactored core API modules to use standardized RESTful path parameters (`/api/{resource}/{sessionId}`) instead of inconsistent query/body params.
+    - **Affected Modules**:
+        - **Contacts**: `/api/contacts/{sessionId}`
+        - **Labels**: `/api/labels/{sessionId}`
+        - **Profile**: `/api/profile/{sessionId}`
+        - **Scheduler**: `/api/scheduler/{sessionId}`
+        - **Auto Replies**: `/api/autoreplies/{sessionId}`
+        - **Groups**: `/api/groups/{sessionId}`
+        - **Webhooks**: `/api/webhooks/{sessionId}`
+    - **Frontend Updates**: Updated all corresponding Dashboard pages (Contacts, Scheduler, Auto Reply, Groups) to consume these new endpoints.
+- **Real-time Chat Sync**:
+    - Implemented Socket.IO integration for instant message updates in Chat Window and Chat List.
+    - Removed legacy polling mechanisms for better performance.
+    - Added auto-scroll to bottom functionality for new messages.
+- **Media Sending Support**:
+    - Added UI for sending Images, Videos, Audio, Documents, and Stickers via a new attachment menu.
+    - Implemented new API endpoint `POST /api/messages/{sessionId}/{jid}/media`.
+- **Session Manager V2**:
+    - Refactored Session Manager UI to a modern Grid Layout.
+    - Added support for **Custom Session IDs** during creation.
+    - Improved status indicators and navigation controls.
+- **Landing Page Overhaul**:
+    - Redesigned landing page with SaaS-style UI, features grid, and tech stack showcase.
+    - Added Dynamic Version display, Privacy Policy, and Terms of Service pages.
+- **Documentation**:
+    - Enhanced Sidebar with accordion navigation and search.
+    - Updated `API_DOCUMENTATION.md` and `swagger.ts` with new Media API endpoint.
+- **Public API Enhancements**:
+    - Added `fileUrl`, `sender` (object), and `remoteJidAlt` to webhook payloads.
+    - Webhooks now include detailed `quoted` message information with auto-resolved media URLs.
 
 ### Fixed
-- **Documentation Accuracy**: Corrected endpoint counts and method definitions (GET/PUT/DELETE) for `autoreplies`, `scheduler`, `webhooks`, and `users` resources.
-- **Swagger Schema**: Fixed missing endpoints in the Swagger generator script (`users/{id}`, `labels`, `notifications`, `system`, etc.).
-
-## [1.1.0.1] - 2026-01-15
-
-### Added
-- **Webhook Quoted Message Support**: 
-    - The webhook payload now includes a `quoted` object when processing a reply to a message.
-    - **Recursive Extraction**: Extracts `type`, `content`, `caption`, and identifying keys (`id`, `participant`) of the quoted message.
-    - **Smart Media Lookup**: Automatically looks up the original message in the database using its `stanzaId`. If the original message was a media file (Image/Video/Sticker) that was previously saved, the `quoted.fileUrl` field is populated with the local path. This avoids re-downloading media and saves bandwidth.
-- **Documentation**: Updated `README.md` with detailed collapsible webhook payload examples.
-
-### Fixed
+- **Chat History Sorting**: Fixed `/api/chat/[sessionId]/[jid]` to correctly fetch the latest 100 messages chronologically.
+- **Session Reliability**: Fixed issues with session restarting, stopping, and logout loops.
+- **Logout Logic**: Explicit logout now correctly cleans up credentials.
 - **Webhook Syntax**: Resolved a critical syntax error (duplicate code block) in `src/lib/webhook.ts` that caused build failures.
 - **Robustness**: Improved `extractQuotedMessage` helper to handle various message types (Group, Private) accurately.
 

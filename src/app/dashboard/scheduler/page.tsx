@@ -47,6 +47,9 @@ export default function SchedulerPage() {
     // Delete state
     const [deleteId, setDeleteId] = useState<string | null>(null);
 
+    // Edit state
+    const [editingId, setEditingId] = useState<string | null>(null);
+
     // Remove local updateSession logic as it is handled by provider
 
     useEffect(() => {
@@ -60,7 +63,7 @@ export default function SchedulerPage() {
     const fetchMessages = async (sessionId: string) => {
         setLoading(true);
         try {
-            const res = await fetch(`/api/scheduler?sessionId=${sessionId}`);
+            const res = await fetch(`/api/scheduler/${sessionId}`);
             if (res.ok) {
                 const data = await res.json();
                 setMessages(data);
@@ -74,7 +77,23 @@ export default function SchedulerPage() {
         }
     };
 
-    const createSchedule = async () => {
+    const handleEdit = (msg: ScheduledMessage) => {
+        setEditingId(msg.id);
+        const jidUser = msg.jid.split('@')[0];
+        setNewJid(jidUser);
+        setNewContent(msg.content);
+        // Format date for datetime-local input (YYYY-MM-DDTHH:mm)
+        const date = new Date(msg.sendAt);
+        // Adjust to local ISO string roughly or use library. 
+        // Simple manual format to avoid timezone issues with toISOString() which is UTC.
+        // This is a basic implementation.
+        const localIso = new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+        setNewSendAt(localIso);
+
+        setShowForm(true);
+    };
+
+    const handleSaveSchedule = async () => {
         if (!selectedSessionId || !newJid || !newContent || !newSendAt) return;
 
         // Append domain if missing
@@ -84,36 +103,42 @@ export default function SchedulerPage() {
         }
 
         try {
-            const res = await fetch("/api/scheduler", {
-                method: "POST",
+            const url = editingId
+                ? `/api/scheduler/${selectedSessionId}/${editingId}`
+                : `/api/scheduler/${selectedSessionId}`;
+
+            const method = editingId ? "PUT" : "POST";
+
+            const res = await fetch(url, {
+                method,
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    sessionId: selectedSessionId,
                     jid,
                     content: newContent,
-                    sendAt: newSendAt // Input type datetime-local sends ISO string format
+                    sendAt: newSendAt
                 })
             });
 
             if (res.ok) {
-                toast.success("Message scheduled");
+                toast.success(editingId ? "Schedule updated" : "Message scheduled");
                 setShowForm(false);
                 setNewJid("");
                 setNewContent("");
                 setNewSendAt("");
+                setEditingId(null);
                 fetchMessages(selectedSessionId);
             } else {
-                toast.error("Failed to schedule message");
+                toast.error(editingId ? "Failed to update schedule" : "Failed to schedule message");
             }
         } catch (error) {
-            toast.error("Failed to schedule message");
+            toast.error("An error occurred");
         }
     };
 
     const confirmDelete = async () => {
         if (!deleteId) return;
         try {
-            const res = await fetch(`/api/scheduler/${deleteId}`, { method: "DELETE" });
+            const res = await fetch(`/api/scheduler/${selectedSessionId}/${deleteId}`, { method: "DELETE" });
             if (res.ok) {
                 toast.success("Schedule cancelled");
                 setMessages(messages.filter(m => m.id !== deleteId));
@@ -150,7 +175,13 @@ export default function SchedulerPage() {
                             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                             Refresh
                         </Button>
-                        <Button onClick={() => setShowForm(!showForm)} disabled={!selectedSessionId}>
+                        <Button onClick={() => {
+                            setEditingId(null);
+                            setNewJid("");
+                            setNewContent("");
+                            setNewSendAt("");
+                            setShowForm(!showForm);
+                        }} disabled={!selectedSessionId}>
                             <Plus className="h-4 w-4 mr-2" /> Schedule Message
                         </Button>
                     </div>
@@ -161,11 +192,11 @@ export default function SchedulerPage() {
                     onSearch={setSearchTerm}
                 />
 
-                {/* New Schedule Form */}
+                {/* New/Edit Schedule Form */}
                 {showForm && (
                     <Card className="border-2 border-primary/20">
                         <CardHeader>
-                            <CardTitle>Schedule New Message</CardTitle>
+                            <CardTitle>{editingId ? "Edit Scheduled Message" : "Schedule New Message"}</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div className="grid grid-cols-2 gap-4">
@@ -197,8 +228,14 @@ export default function SchedulerPage() {
                                 />
                             </div>
                             <div className="flex justify-end gap-2">
-                                <Button variant="ghost" onClick={() => setShowForm(false)}>Cancel</Button>
-                                <Button onClick={createSchedule}>Schedule</Button>
+                                <Button variant="ghost" onClick={() => {
+                                    setShowForm(false);
+                                    setEditingId(null);
+                                    setNewJid("");
+                                    setNewContent("");
+                                    setNewSendAt("");
+                                }}>Cancel</Button>
+                                <Button onClick={handleSaveSchedule}>{editingId ? "Update" : "Schedule"}</Button>
                             </div>
                         </CardContent>
                     </Card>
@@ -230,9 +267,14 @@ export default function SchedulerPage() {
                                             Scheduled for: {new Date(msg.sendAt).toLocaleString()}
                                         </div>
                                     </div>
-                                    <Button variant="ghost" size="icon" onClick={() => setDeleteId(msg.id)} className="text-destructive hover:text-destructive hover:bg-red-50">
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
+                                    <div className="flex gap-2">
+                                        <Button variant="ghost" size="sm" onClick={() => handleEdit(msg)} disabled={msg.status !== 'PENDING'}>
+                                            Edit
+                                        </Button>
+                                        <Button variant="ghost" size="icon" onClick={() => setDeleteId(msg.id)} className="text-destructive hover:text-destructive hover:bg-red-50">
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </div>
                                 </CardContent>
                             </Card>
                         ))}

@@ -91,11 +91,11 @@ export default async function DashboardLayout({
                             <CalendarClock size={20} />
                             <span>Scheduler</span>
                         </Link>
-                        <Link href="/dashboard/api-docs" className="flex items-center space-x-2 px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md">
+                        <Link href="/docs" className="flex items-center space-x-2 px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md">
                             <FileText size={20} />
                             <span>API Documentation</span>
                         </Link>
-                        <Link href="/docs" target="_blank" className="flex items-center space-x-2 px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md">
+                        <Link href="/swagger" target="_blank" className="flex items-center space-x-2 px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md">
                             <Code size={20} />
                             <span>Swagger UI</span>
                         </Link>

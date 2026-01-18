@@ -24,6 +24,9 @@ export class WhatsAppInstance {
     userId: string;
     io: Server;
     config: any = {};
+    startTime: Date | null = null;
+
+    isStopped: boolean = false;
 
     constructor(sessionId: string, userId: string, io: Server) {
         this.sessionId = sessionId;
@@ -32,6 +35,7 @@ export class WhatsAppInstance {
     }
 
     async init() {
+        this.isStopped = false; // Reset stop flag on init
         const sessionData = await prisma.session.findUnique({ where: { sessionId: this.sessionId } });
         this.config = sessionData?.config || {};
         
@@ -52,7 +56,7 @@ export class WhatsAppInstance {
         });
         
         // Bind Store for DB Sync (handles incoming messages)
-        bindSessionStore(this.socket, this.sessionId, this.sessionId);
+        bindSessionStore(this.socket, this.sessionId, this.io);
         
         // Bind Contact Sync (handles contacts.update and messaging-history.set events)
         bindContactSync(this.socket, this.sessionId);
@@ -69,6 +73,7 @@ export class WhatsAppInstance {
 
         try {
             if (qr) {
+                if (this.isStopped) return; // Don't emit QR if stopped
                 this.qr = qr;
                 this.status = "SCAN_QR";
                 
@@ -84,38 +89,64 @@ export class WhatsAppInstance {
             
             if (connection === "close") {
                 const code = (lastDisconnect?.error as any)?.output?.statusCode;
-                const shouldReconnect = code !== DisconnectReason.loggedOut;
+                const isLoggedOut = code === DisconnectReason.loggedOut;
                 
-                this.status = "DISCONNECTED";
-                 this.io?.to(this.sessionId).emit("connection.update", { status: this.status, qr: null });
+                // Only reconnect if NOT logged out AND NOT explicitly stopped
+                const shouldReconnect = !isLoggedOut && !this.isStopped;
+                
+                // Determine status based on reason
+                if (isLoggedOut) {
+                    this.status = "LOGGED_OUT";
+                } else if (this.isStopped) {
+                    this.status = "STOPPED";
+                } else {
+                    this.status = "DISCONNECTED";
+                }
+                
+                this.io?.to(this.sessionId).emit("connection.update", { status: this.status, qr: null });
                  
-                 // Use try-catch specifically for update as session might be deleted
-                 try {
-                     await prisma.session.update({
+                // Use try-catch specifically for update as session might be deleted
+                try {
+                    await prisma.session.update({
                         where: { sessionId: this.sessionId },
-                        data: { status: "DISCONNECTED", qr: null }
+                        data: { status: this.status, qr: null }
                     });
-                 } catch (e) {
-                     // Ignore if session not found (deleted)
-                 }
+                } catch (e) {
+                    // Ignore if session not found (deleted)
+                }
 
                 if (shouldReconnect) {
+                    // Connection lost unexpectedly, reconnect
                     this.init();
-                } else {
-                     console.log(`Session ${this.sessionId} logged out. Deleting...`);
-                     try {
-                         await prisma.session.update({
-                            where: { sessionId: this.sessionId },
-                            data: { status: "LOGGED_OUT", qr: null }
-                         });
-                     } catch (e) { /* ignore */ }
-                     this.socket = null;
+                } else if (isLoggedOut) {
+                    // Explicit logout: delete credentials
+                    console.log(`Session ${this.sessionId} logged out. Deleting credentials...`);
+                    try {
+                        await prisma.$transaction([
+                            prisma.session.update({
+                                where: { sessionId: this.sessionId },
+                                data: { status: "LOGGED_OUT", qr: null }
+                            }),
+                            prisma.authState.deleteMany({
+                                where: { sessionId: this.sessionId }
+                            })
+                        ]);
+                    } catch (e) { /* ignore */ }
+                    this.socket = null;
+                    this.config = {}; // Clear config cache
+                    console.log(`Session ${this.sessionId} credentials deleted.`);
+                } else if (this.isStopped) {
+                    // Stopped: preserve credentials for future restart
+                    console.log(`Session ${this.sessionId} stopped. Credentials preserved for auto-login.`);
+                    this.socket = null;
                 }
             }
+
 
             if (connection === "open") {
                 this.status = "CONNECTED";
                 this.qr = null;
+                this.startTime = new Date();
                 
                 this.io?.to(this.sessionId).emit("connection.update", { status: this.status, qr: null });
                 
