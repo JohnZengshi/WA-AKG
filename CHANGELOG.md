@@ -19,6 +19,17 @@
 ### Fixed
 - **Chat History API**: Fixed issue where `/api/chat/[sessionId]/[jid]` fetched the oldest messages instead of the latest ones due to incorrect sorting. Now fetches the latest 100 messages chronologically.
 
+### Enhancement
+- **Landing Page Redesign**:
+    - Complete overhaul of the landing page (`/`) with a modern "SaaS-style" UI.
+    - Added Hero section, Features grid, and Tech Stack showcase.
+    - Implemented dynamic version display from `package.json`.
+    - Added Privacy Policy (`/privacy`) and Terms of Service (`/terms`) pages.
+- **Docs Improvements**:
+    - **Sidebar**: Implemented accordion-style collapsible sidebar for nested navigation.
+    - **Versioning**: Added dynamic version display in the docs header.
+    - **Navigation**: Updated footer links and sidebar to be more responsive.
+
 ## [v1.2.0.beta-1] - 2026-01-18
 
 ### Changed

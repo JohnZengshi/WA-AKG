@@ -157,8 +157,8 @@ export default function Home() {
               <span className="text-xl font-bold text-white">WA-AKG</span>
             </div>
             <div className="flex gap-6 text-sm">
-              <Link href="#" className="hover:text-white transition-colors">Privacy Policy</Link>
-              <Link href="#" className="hover:text-white transition-colors">Terms of Service</Link>
+              <Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
+              <Link href="/terms" className="hover:text-white transition-colors">Terms of Service</Link>
               <Link href="https://github.com/mrifqidaffaaditya/WA-AKG" className="hover:text-white transition-colors">GitHub</Link>
             </div>
             <p className="text-sm text-slate-500">
