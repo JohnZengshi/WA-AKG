@@ -11,20 +11,35 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 
 interface TocItem {
-    level: number;
     text: string;
     id: string;
 }
 
+interface TocSection {
+    title: string;
+    id: string;
+    items: TocItem[];
+}
+
 interface DocsClientProps {
     content: string;
-    toc: TocItem[];
+    toc: TocSection[];
 }
 
 export function DocsClient({ content, toc }: DocsClientProps) {
     const [searchQuery, setSearchQuery] = useState("");
     const [filteredToc, setFilteredToc] = useState(toc);
     const [openMobileMenu, setOpenMobileMenu] = useState(false);
+    const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
+
+    // Initialize openSections (all open by default or logic based)
+    useEffect(() => {
+        const initial: Record<string, boolean> = {};
+        toc.forEach(section => {
+            initial[section.id] = true;
+        });
+        setOpenSections(initial);
+    }, [toc]);
 
     useEffect(() => {
         if (!searchQuery) {
@@ -33,17 +48,39 @@ export function DocsClient({ content, toc }: DocsClientProps) {
         }
 
         const lowerQuery = searchQuery.toLowerCase();
-        const filtered = toc.filter((item) =>
-            item.text.toLowerCase().includes(lowerQuery)
-        );
+        // Filter logic: Keep section if title matches OR if any item matches
+        const filtered = toc.map(section => {
+            const titleMatches = section.title.toLowerCase().includes(lowerQuery);
+            const matchingItems = section.items.filter(item =>
+                item.text.toLowerCase().includes(lowerQuery)
+            );
+
+            if (titleMatches || matchingItems.length > 0) {
+                return {
+                    ...section,
+                    items: titleMatches ? section.items : matchingItems // If title matches, show all items. Else show only matching items.
+                };
+            }
+            return null;
+        }).filter(Boolean) as TocSection[];
+
         setFilteredToc(filtered);
+
+        // Auto-expand all results when searching
+        const allOpen: Record<string, boolean> = {};
+        filtered.forEach(s => allOpen[s.id] = true);
+        setOpenSections(allOpen);
+
     }, [searchQuery, toc]);
 
-    const scrollToSection = (id: string) => {
+    const toggleSection = (id: string) => {
+        setOpenSections(prev => ({ ...prev, [id]: !prev[id] }));
+    };
+
+    const scrollToSection = (id: string, closeMobile = true) => {
         const element = document.getElementById(id);
         if (element) {
-            // Offset for fixed header
-            const headerOffset = 80;
+            const headerOffset = 100;
             const elementPosition = element.getBoundingClientRect().top;
             const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
 
@@ -51,86 +88,92 @@ export function DocsClient({ content, toc }: DocsClientProps) {
                 top: offsetPosition,
                 behavior: "smooth"
             });
-            setOpenMobileMenu(false);
+            if (closeMobile) setOpenMobileMenu(false);
         }
     };
+
+    const renderSidebarContent = (isMobile = false) => (
+        <nav className="space-y-4 pb-8">
+            {filteredToc.length > 0 ? (
+                filteredToc.map((section) => (
+                    <div key={section.id} className="space-y-1">
+                        <button
+                            onClick={() => toggleSection(section.id)}
+                            className="flex items-center justify-between w-full text-left font-semibold text-gray-900 hover:text-blue-600 transition-colors py-1 group"
+                        >
+                            <span className="truncate">{section.title}</span>
+                            <ChevronRight
+                                className={`h-4 w-4 text-gray-400 transition-transform duration-200 group-hover:text-blue-500 ${openSections[section.id] ? "rotate-90" : ""}`}
+                            />
+                        </button>
+
+                        {openSections[section.id] && (
+                            <div className="space-y-1 ml-2 border-l-2 border-slate-100 pl-2 animate-in slide-in-from-top-1 duration-200">
+                                {section.items.map((item) => (
+                                    <button
+                                        key={item.id}
+                                        onClick={() => scrollToSection(item.id, isMobile)}
+                                        className="block text-left w-full text-sm text-gray-500 hover:text-blue-600 hover:bg-slate-50 py-1.5 px-2 rounded transition-colors truncate"
+                                        title={item.text}
+                                    >
+                                        {item.text}
+                                    </button>
+                                ))}
+                                {section.items.length === 0 && (
+                                    <p className="text-xs text-gray-300 italic px-2">No subsections</p>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                ))
+            ) : (
+                <p className="text-sm text-gray-400 text-center py-4">No results found</p>
+            )}
+        </nav>
+    );
 
     return (
         <div className="flex-1 max-w-7xl mx-auto w-full flex items-start relative px-4 sm:px-6 lg:px-8">
             {/* Sidebar (Desktop) */}
-            <aside className="hidden lg:block w-64 sticky top-20 h-[calc(100vh-5rem)] overflow-y-auto border-r border-gray-200 pr-4 mt-8">
-                <div className="mb-6 relative">
+            <aside className="hidden lg:block w-72 sticky top-20 h-[calc(100vh-6rem)] overflow-y-auto border-r border-gray-100 pr-6 mt-8 scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
+                <div className="mb-8 relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <input
                         type="text"
-                        placeholder="Search documentation..."
-                        className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        placeholder="Filter documentation..."
+                        className="w-full pl-9 pr-4 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-gray-400"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
                 </div>
-                <nav className="space-y-1">
-                    {filteredToc.length > 0 ? (
-                        filteredToc.map((item, index) => (
-                            <button
-                                key={index}
-                                onClick={() => scrollToSection(item.id)}
-                                className={`block text-left w-full text-sm py-1.5 px-3 rounded-md transition-colors truncate ${item.level === 2
-                                    ? "font-semibold text-gray-900 hover:bg-gray-100"
-                                    : "text-gray-500 hover:text-gray-900 hover:bg-gray-100 ml-3"
-                                    }`}
-                                title={item.text}
-                            >
-                                {item.text}
-                            </button>
-                        ))
-                    ) : (
-                        <p className="text-sm text-gray-400 text-center py-4">No results found</p>
-                    )}
-                </nav>
+                {renderSidebarContent(false)}
             </aside>
 
             {/* Mobile Sidebar (Drawer) */}
             <div className="lg:hidden fixed bottom-6 right-6 z-50">
                 <Sheet open={openMobileMenu} onOpenChange={setOpenMobileMenu}>
                     <SheetTrigger asChild>
-                        <Button size="icon" className="h-12 w-12 rounded-full shadow-lg bg-blue-600 hover:bg-blue-700 text-white">
+                        <Button size="icon" className="h-14 w-14 rounded-full shadow-lg shadow-blue-600/20 bg-blue-600 hover:bg-blue-700 text-white transition-transform hover:scale-105 active:scale-95">
                             <Menu className="h-6 w-6" />
                         </Button>
                     </SheetTrigger>
-                    <SheetContent side="left" className="w-[300px] sm:w-[400px] p-0">
-                        <div className="p-4 border-b">
-                            <h2 className="text-lg font-bold">Contents</h2>
+                    <SheetContent side="left" className="w-[300px] sm:w-[400px] p-0 flex flex-col">
+                        <div className="p-6 border-b bg-gray-50/50">
+                            <h2 className="text-lg font-bold text-gray-900">Documentation</h2>
+                            <p className="text-xs text-gray-500 mt-1">Navigate through sections</p>
                         </div>
-                        <div className="p-4">
-                            <div className="mb-4 relative">
+                        <div className="p-4 flex-1 overflow-y-auto">
+                            <div className="mb-6 relative">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                                 <input
                                     type="text"
-                                    placeholder="Search..."
-                                    className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="Search topic..."
+                                    className="w-full pl-9 pr-4 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                 />
                             </div>
-                            <nav className="space-y-1 max-h-[calc(100vh-10rem)] overflow-y-auto">
-                                {filteredToc.length > 0 ? (
-                                    filteredToc.map((item, index) => (
-                                        <button
-                                            key={index}
-                                            onClick={() => scrollToSection(item.id)}
-                                            className={`block text-left w-full text-sm py-2 px-3 rounded-md transition-colors truncate ${item.level === 2
-                                                ? "font-semibold text-gray-900 bg-gray-50"
-                                                : "text-gray-500 border-l-2 border-transparent ml-3 pl-3"
-                                                }`}
-                                        >
-                                            {item.text}
-                                        </button>
-                                    ))
-                                ) : (
-                                    <p className="text-sm text-gray-400 text-center py-4">No results found</p>
-                                )}
-                            </nav>
+                            {renderSidebarContent(true)}
                         </div>
                     </SheetContent>
                 </Sheet>
