@@ -419,7 +419,47 @@ curl -X POST https://your-domain.com/api/messages/sales-01/send \
 }
 ```
 
+
+### POST /api/messages/{sessionId}/{jid}/media
+**Description**: Send media (image, video, audio, document) or sticker using multipart/form-data.
+
+**Path Parameters**:
+- `sessionId` (string, required): Session identifier
+- `jid` (string, required): Recipient JID (URL-encoded)
+
+**Body (multipart/form-data)**:
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| file | File | Yes | The file to upload |
+| type | string | Yes | MediaType: `image`, `video`, `audio`, `voice`, `document`, `sticker` |
+| caption | string | No | Caption for image/video |
+
+**Request Example**:
+```bash
+curl -X POST https://your-domain.com/api/messages/sales-01/628123456789%40s.whatsapp.net/media \
+  -H "X-API-Key: your-api-key" \
+  -F "file=@/path/to/image.jpg" \
+  -F "type=image" \
+  -F "caption=This is a caption"
+```
+
+**Response (200 OK)**:
+```json
+{
+  "success": true,
+  "data": { ... } // Baileys message object
+}
+```
+
+**Common Errors**:
+- `400`: File is required.
+- `401`: Unauthorized.
+- `403`: Forbidden (cannot access session).
+- `503`: Session not ready.
+- `500`: Failed to send media.
+
 ---
+
 
 ### POST /api/chat/{sessionId}/send (DEPRECATED)
 > **⚠️ DEPRECATED**: This endpoint is deprecated. Use `POST /api/messages/{sessionId}/{jid}/send` instead. This endpoint will be removed in a future version.

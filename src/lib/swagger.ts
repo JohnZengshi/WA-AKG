@@ -738,6 +738,64 @@ All endpoints require authentication via:
                     }
                 },
 
+                "/messages/{sessionId}/{jid}/media": {
+                    post: {
+                        tags: ["Messaging"],
+                        summary: "Send media (image/video/audio/document)",
+                        description: "Send file using multipart/form-data",
+                        parameters: [
+                            { 
+                                name: "sessionId", 
+                                in: "path", 
+                                required: true, 
+                                schema: { type: "string" },
+                                description: "Session identifier"
+                            },
+                            { 
+                                name: "jid", 
+                                in: "path", 
+                                required: true, 
+                                schema: { type: "string" },
+                                description: "Recipient JID"
+                            }
+                        ],
+                        requestBody: {
+                            content: {
+                                "multipart/form-data": {
+                                    schema: {
+                                        type: "object",
+                                        required: ["file", "type"],
+                                        properties: {
+                                            file: { type: "string", format: "binary" },
+                                            type: { 
+                                                type: "string", 
+                                                enum: ["image", "video", "audio", "voice", "document", "sticker"],
+                                                default: "image"
+                                            },
+                                            caption: { type: "string" }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        responses: {
+                            200: {
+                                description: "Media sent successfully",
+                                content: {
+                                    "application/json": {
+                                        schema: { $ref: "#/components/schemas/Success" }
+                                    }
+                                }
+                            },
+                            400: { description: "Bad Request - File missing" },
+                            401: { $ref: "#/components/responses/Unauthorized" },
+                            403: { $ref: "#/components/responses/Forbidden" },
+                            503: { $ref: "#/components/responses/SessionNotReady" },
+                            500: { description: "Failed to send media" }
+                        }
+                    }
+                },
+
 
                 "/messages/{sessionId}/broadcast": {
                     post: {
