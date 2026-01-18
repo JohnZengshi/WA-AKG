@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { ArrowRight, Bot, Github, Zap, Shield, Globe, MessageSquare, Clock, Code } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import fs from "fs";
+import path from "path";
 
 export const metadata = {
   title: "WA-AKG | Modern WhatsApp Gateway Management",
@@ -13,6 +15,15 @@ export const metadata = {
 };
 
 export default function Home() {
+  const packagePath = path.join(process.cwd(), "package.json");
+  let version = "v1.2.0";
+  try {
+    const packageJson = JSON.parse(fs.readFileSync(packagePath, "utf8"));
+    version = `v${packageJson.version}`;
+  } catch (error) {
+    console.error("Failed to read package.json", error);
+  }
+
   return (
     <div className="flex min-h-screen flex-col bg-white overflow-hidden">
       {/* Navbar */}
@@ -50,7 +61,7 @@ export default function Home() {
             <div className="flex flex-col items-center text-center space-y-8 max-w-4xl mx-auto">
               <div className="inline-flex items-center rounded-full border border-green-200 bg-green-50 px-3 py-1 text-sm text-green-700 animate-in fade-in slide-in-from-bottom-4 duration-1000">
                 <span className="flex h-2 w-2 rounded-full bg-green-600 mr-2"></span>
-                v1.2.0 is now available
+                {version} is now available
               </div>
               <div className="space-y-4">
                 <h1 className="text-5xl font-extrabold tracking-tight sm:text-6xl md:text-7xl lg:text-8xl bg-gradient-to-b from-slate-900 to-slate-700 bg-clip-text text-transparent pb-2">
