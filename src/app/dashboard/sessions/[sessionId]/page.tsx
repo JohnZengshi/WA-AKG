@@ -9,6 +9,17 @@ import { ArrowLeft, Play, Square, RotateCcw, LogOut, Power, Trash2, QrCode } fro
 import Link from "next/link";
 import { io, Socket } from "socket.io-client";
 import { QRCodeSVG } from "qrcode.react";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 type SessionDetail = {
     id: string;
@@ -120,9 +131,7 @@ export default function SessionDetailPage() {
         }
     };
 
-    const confirmDelete = async () => {
-        if (!confirm("Are you sure you want to delete this session entirely?")) return;
-
+    const deleteSession = async () => {
         try {
             const res = await fetch(`/api/sessions/${sessionId}/settings`, { method: 'DELETE' });
             if (res.ok) {
@@ -239,13 +248,31 @@ export default function SessionDetailPage() {
                                 <LogOut className="mr-2 h-4 w-4" /> Logout
                             </Button>
 
-                            <Button
-                                variant="destructive"
-                                className="w-full justify-start"
-                                onClick={confirmDelete}
-                            >
-                                <Trash2 className="mr-2 h-4 w-4" /> Delete Session
-                            </Button>
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button
+                                        variant="destructive"
+                                        className="w-full justify-start"
+                                    >
+                                        <Trash2 className="mr-2 h-4 w-4" /> Delete Session
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            This action cannot be undone. This will permanently delete the session
+                                            and remove your connection data from the server.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction onClick={deleteSession} className="bg-red-600 hover:bg-red-700">
+                                            Delete
+                                        </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
                         </div>
                     </CardContent>
                 </Card>

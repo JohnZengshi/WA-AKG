@@ -98,13 +98,15 @@ export function DocsClient({ content, toc }: DocsClientProps) {
                 filteredToc.map((section) => (
                     <div key={section.id} className="space-y-1">
                         <button
-                            onClick={() => toggleSection(section.id)}
+                            onClick={() => section.items.length > 0 ? toggleSection(section.id) : scrollToSection(section.id, isMobile)}
                             className="flex items-center justify-between w-full text-left font-semibold text-gray-900 hover:text-blue-600 transition-colors py-1 group"
                         >
                             <span className="truncate">{section.title}</span>
-                            <ChevronRight
-                                className={`h-4 w-4 text-gray-400 transition-transform duration-200 group-hover:text-blue-500 ${openSections[section.id] ? "rotate-90" : ""}`}
-                            />
+                            {section.items.length > 0 && (
+                                <ChevronRight
+                                    className={`h-4 w-4 text-gray-400 transition-transform duration-200 group-hover:text-blue-500 ${openSections[section.id] ? "rotate-90" : ""}`}
+                                />
+                            )}
                         </button>
 
                         {openSections[section.id] && (
