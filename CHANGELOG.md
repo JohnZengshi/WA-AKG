@@ -38,9 +38,6 @@
 - **Chat History Sorting**: Fixed `/api/chat/[sessionId]/[jid]` to correctly fetch the latest 100 messages chronologically.
 - **Session Reliability**: Fixed issues with session restarting, stopping, and logout loops.
 - **Logout Logic**: Explicit logout now correctly cleans up credentials.
-
-
-### Fixed
 - **Webhook Syntax**: Resolved a critical syntax error (duplicate code block) in `src/lib/webhook.ts` that caused build failures.
 - **Robustness**: Improved `extractQuotedMessage` helper to handle various message types (Group, Private) accurately.
 
