@@ -104,7 +104,7 @@ Every incoming message follows this path:
 
 ## 🚀 Environment & Deployment
 
-Configuration is centralized in `.env`. The project natively supports standard bare-metal builds (`npm run build`) and Docker containerized deployment (`docker-compose.yml`) which coordinates:
+Configuration is centralized in `.env`. The project natively supports standard bare-metal builds (`npm run build`) and Docker containerized deployment (`web/docker-compose.yml`) which coordinates:
 1. A MySQL 8.0 instance with persistent volume storage for schema data.
 2. Next.js gateway web container running on custom tsx server with automated startup database synchronization (`npx prisma db push`).
 

@@ -9,22 +9,26 @@ Ensure you have a database server running.
 -   **Local Development (Bare-metal)**: You can run MySQL or PostgreSQL locally on your machine.
 -   **Production**: Use a managed database service (e.g., Supabase, Neon, AWS RDS).
 
-## 2. Docker Compose Stack Setup (Automated)
+## 2. Docker Compose Stack Setup (Zero Configuration)
 
-The project includes a `docker-compose.yml` in the root folder that defines a MySQL 8.0 container (`wa-akg-db`) and the Next.js gateway container (`wa-akg-app`).
+The project includes a `docker-compose.yml` in the `web/` directory that defines a MySQL 8.0 container (`wa-akg-db`) and the Next.js gateway container (`wa-akg-app`).
 
-1. **Configure Environment**:
-   Ensure you have configured a `.env` file in the `web/` directory. By default, the `docker-compose.yml` passes the following environment variable to link the containers:
-   ```env
-   DATABASE_URL="mysql://root:rootpassword@db:3306/wa_akg"
-   ```
-2. **Start Stack**:
-   From the repository root folder, run:
+1. **Start Stack**:
+   From the `web/` directory, run:
    ```bash
+   cd web
    docker compose up -d
    ```
-3. **Database Push**:
-   When the web application container starts, it automatically runs `npx prisma db push` to push the database schema and initialize the tables.
+2. **Automated Setup**:
+   On startup, the container automatically:
+   - Sets up the MySQL database.
+   - Pushes the database schema and creates all tables (`npx prisma db push`).
+   - Provisions a default SuperAdmin account with the credentials:
+     - **Email**: `admin@example.com`
+     - **Password**: `admin123`
+
+3. **Custom Configuration (Optional)**:
+   If you wish to change defaults (like database connection details, admin login, timezone, or secrets), you can edit the environment values directly in `web/docker-compose.yml`, or copy `web/.env.example` to `web/.env` and edit it before running docker compose.
 
 ---
 

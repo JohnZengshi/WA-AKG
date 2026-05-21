@@ -134,25 +134,22 @@ npm run dev
 npm run build && npm start
 ```
 
-### 🐋 Docker Deployment (Recommended)
+### 🐋 Docker Deployment (Zero Configuration)
 
-You can deploy the application and its MySQL database together using Docker Compose:
+You can deploy the application and its MySQL database together using Docker Compose with zero initial configuration:
 
-1. **Configure Environment**:
-   Copy `.env.example` to `.env` in the `web` directory and configure it. Note that `docker-compose.yml` pre-configures connection to the MySQL container using `DATABASE_URL=mysql://root:rootpassword@db:3306/wa_akg`.
-
-2. **Start Services**:
-   Run from the repository root:
+1. **Start Services**:
+   Navigate to the `web` directory and run:
    ```bash
+   cd web
    docker compose up -d
    ```
-   This builds the Next.js app image and pulls the MySQL 8.0 image, running them in the background. Database tables are generated automatically on startup.
+   This automatically builds the Next.js application, pulls MySQL 8.0, creates database tables, and provisions the default SuperAdmin user:
+   - **Email**: `admin@example.com`
+   - **Password**: `admin123`
 
-3. **Create SuperAdmin**:
-   Create your initial admin user in the running container:
-   ```bash
-   docker exec -it wa-akg-app npm run make-admin admin@example.com password123
-   ```
+2. **Customization (Optional)**:
+   To customize settings, edit the environment variables directly in `web/docker-compose.yml` (e.g. `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `AUTH_SECRET`, `TZ`, etc.), or copy `.env.example` to `.env` in the `web` folder.
 
 ---
 
