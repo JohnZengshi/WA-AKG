@@ -204,20 +204,27 @@ class AntiSpamManager {
         }
 
         try {
-            const results: any[] = await prisma.$queryRawUnsafe(
-                `SELECT bc.antiSpamEnabled, bc.spamLimit, bc.spamInterval, bc.spamDelayMin, bc.spamDelayMax
-                 FROM BotConfig bc
-                 INNER JOIN Session s ON s.id = bc.sessionId
-                 WHERE s.sessionId = ?`,
-                sessionId
-            );
+            const session = await prisma.session.findUnique({
+                where: { sessionId },
+                select: {
+                    botConfig: {
+                        select: {
+                            antiSpamEnabled: true,
+                            spamLimit: true,
+                            spamInterval: true,
+                            spamDelayMin: true,
+                            spamDelayMax: true
+                        }
+                    }
+                }
+            });
 
-            if (results.length === 0) {
+            if (!session || !session.botConfig) {
                 this.configCache.set(sessionId, { config: null, cachedAt: Date.now() });
                 return null;
             }
 
-            const row = results[0];
+            const row = session.botConfig;
             const config: AntiSpamConfig = {
                 antiSpamEnabled: Boolean(row.antiSpamEnabled),
                 spamLimit: Number(row.spamLimit) || 5,

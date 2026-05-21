@@ -22,9 +22,25 @@ export async function PUT(
         const body = await request.json();
         const { name, url, secret, events, isActive } = body;
 
-        // Verify ownership and session context (optional but good for strictness)
+        const session = await prisma.session.findUnique({
+            where: { sessionId: sessionId },
+            select: { id: true }
+        });
+
+        if (!session) {
+            return NextResponse.json({ status: false, message: "Session not found", error: "Session not found" }, { status: 404 });
+        }
+
+        // Verify ownership and session context
         const existing = await prisma.webhook.findFirst({
-            where: { id, userId: user.id }
+            where: {
+                id,
+                userId: user.id,
+                OR: [
+                    { sessionId: session.id },
+                    { sessionId: null }
+                ]
+            }
         });
 
         if (!existing) {
@@ -37,8 +53,6 @@ export async function PUT(
                 ...(name !== undefined && { name }),
                 ...(url !== undefined && { url }),
                 ...(secret !== undefined && { secret }),
-                // Session ID generally shouldn't change, but we could allow moving it? 
-                // For now, let's keep it defined by creation or unchanged.
                 ...(events !== undefined && { events }),
                 ...(isActive !== undefined && { isActive })
             }
@@ -68,8 +82,24 @@ export async function DELETE(
     }
 
     try {
+        const session = await prisma.session.findUnique({
+            where: { sessionId: sessionId },
+            select: { id: true }
+        });
+
+        if (!session) {
+            return NextResponse.json({ status: false, message: "Session not found", error: "Session not found" }, { status: 404 });
+        }
+
         const existing = await prisma.webhook.findFirst({
-            where: { id, userId: user.id }
+            where: {
+                id,
+                userId: user.id,
+                OR: [
+                    { sessionId: session.id },
+                    { sessionId: null }
+                ]
+            }
         });
 
         if (!existing) {

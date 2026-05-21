@@ -1,5 +1,5 @@
 import { NextResponse, NextRequest } from "next/server";
-import { getAuthenticatedUser } from "@/lib/api-auth";
+import { getAuthenticatedUser, canAccessSession } from "@/lib/api-auth";
 import { waManager } from "@/modules/whatsapp/manager";
 
 import { prisma } from "@/lib/prisma";
@@ -17,6 +17,11 @@ export async function GET(
         const auth = await getAuthenticatedUser(req);
         if (!auth) {
             return NextResponse.json({ status: false, message: "Unauthorized" }, { status: 401 });
+        }
+
+        const hasAccess = await canAccessSession(auth.id, auth.role, sessionId);
+        if (!hasAccess) {
+            return NextResponse.json({ status: false, message: "Forbidden - Cannot access this session" }, { status: 403 });
         }
 
         const instance = waManager.getInstance(sessionId);

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { BotMessageSquare, Loader2, Plus, Trash2, MessageCircleReply, Image as ImageIcon } from "lucide-react";
+import { BotMessageSquare, Loader2, Plus, Trash2, MessageCircleReply, Image as ImageIcon, Pencil } from "lucide-react";
 import {
     Dialog,
     DialogContent,
@@ -31,7 +31,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { getAutoReplies, createAutoReply, deleteAutoReply } from "./actions";
+import { getAutoReplies, createAutoReply, deleteAutoReply, updateAutoReply } from "./actions";
+import { SessionGuard } from "@/components/dashboard/session-guard";
 
 interface AutoReply {
     id: string;
@@ -57,6 +58,14 @@ export default function AutoReplyPage() {
     const [response, setResponse] = useState("");
     const [matchType, setMatchType] = useState("EXACT");
     const [triggerType, setTriggerType] = useState("ALL");
+
+    // Edit states
+    const [isEditOpen, setIsEditOpen] = useState(false);
+    const [editId, setEditId] = useState<string | null>(null);
+    const [editKeyword, setEditKeyword] = useState("");
+    const [editResponse, setEditResponse] = useState("");
+    const [editMatchType, setEditMatchType] = useState("EXACT");
+    const [editTriggerType, setEditTriggerType] = useState("ALL");
 
     useEffect(() => {
         if (sessionId) {
@@ -130,24 +139,47 @@ export default function AutoReplyPage() {
         setTriggerType("ALL");
     };
 
-    if (!sessionId) {
-        return (
-            <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4 space-y-4">
-                <div className="h-16 w-16 bg-muted/50 rounded-full flex justify-center items-center">
-                    <MessageCircleReply className="h-8 w-8 text-muted-foreground" />
-                </div>
-                <div>
-                    <h2 className="text-xl font-bold tracking-tight">No Session Selected</h2>
-                    <p className="text-muted-foreground mt-2 max-w-sm">
-                        Please select an active WhatsApp session from the sidebar to configure auto-replies.
-                    </p>
-                </div>
-            </div>
-        );
-    }
+    const handleEdit = (rule: AutoReply) => {
+        setEditId(rule.id);
+        setEditKeyword(rule.keyword);
+        setEditResponse(rule.response);
+        setEditMatchType(rule.matchType);
+        setEditTriggerType(rule.triggerType);
+        setIsEditOpen(true);
+    };
+
+    const handleUpdate = async () => {
+        if (!sessionId || !editId) return;
+        if (!editKeyword.trim() || !editResponse.trim()) {
+            toast.error("Keyword and response are required");
+            return;
+        }
+
+        setSubmitting(true);
+        try {
+            await updateAutoReply(sessionId, editId, {
+                keyword: editKeyword.trim(),
+                response: editResponse.trim(),
+                matchType: editMatchType,
+                triggerType: editTriggerType,
+                isMedia: false,
+                mediaUrl: null
+            });
+
+            toast.success("Auto-reply rule updated");
+            setIsEditOpen(false);
+            fetchRules();
+        } catch (error: any) {
+            console.error(error);
+            toast.error(error.message || "Error updating auto-reply");
+        } finally {
+            setSubmitting(false);
+        }
+    };
 
     return (
-        <div className="max-w-5xl space-y-6">
+        <SessionGuard>
+            <div className="max-w-5xl space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight">Auto Replies Builder</h1>
@@ -259,6 +291,9 @@ export default function AutoReplyPage() {
                                         </div>
                                     </div>
                                     <div className="shrink-0 flex gap-1">
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:bg-muted" onClick={() => handleEdit(rule)}>
+                                            <Pencil className="w-4 h-4" />
+                                        </Button>
                                         <AlertDialog>
                                             <AlertDialogTrigger asChild>
                                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10">
@@ -297,6 +332,77 @@ export default function AutoReplyPage() {
                     ))}
                 </div>
             )}
+
+            {/* Edit Auto-Reply Dialog Modal */}
+            <Dialog open={isEditOpen} onOpenChange={(open) => {
+                setIsEditOpen(open);
+                if (!open) setEditId(null);
+            }}>
+                <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                        <DialogTitle>Edit Auto-Reply Rule</DialogTitle>
+                        <DialogDescription>Modify the keyword-based response rule.</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label>Keyword</Label>
+                                <Input 
+                                    value={editKeyword} 
+                                    onChange={(e) => setEditKeyword(e.target.value)} 
+                                    placeholder="e.g. !help, ping" 
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Match Type</Label>
+                                <Select value={editMatchType} onValueChange={setEditMatchType}>
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="EXACT">Exact Match</SelectItem>
+                                        <SelectItem value="CONTAINS">Contains</SelectItem>
+                                        <SelectItem value="STARTS_WITH">Starts With</SelectItem>
+                                        <SelectItem value="REGEX">Regex Pattern</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>Select Trigger Audience</Label>
+                            <Select value={editTriggerType} onValueChange={setEditTriggerType}>
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="ALL">Everyone & Groups</SelectItem>
+                                    <SelectItem value="PRIVATE">Private Chats Only</SelectItem>
+                                    <SelectItem value="GROUP">Group Chats Only</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>Reply Message</Label>
+                            <Textarea 
+                                value={editResponse} 
+                                onChange={(e) => setEditResponse(e.target.value)} 
+                                placeholder="Response text..." 
+                                className="min-h-[120px]"
+                            />
+                            <p className="text-xs text-muted-foreground">You can use standard WhatsApp formatting (*bold*, _italic_, ~strikethrough~)</p>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancel</Button>
+                        <Button onClick={handleUpdate} disabled={submitting || !editKeyword.trim() || !editResponse.trim()}>
+                            {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : "Save Changes"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
+        </SessionGuard>
     );
 }
