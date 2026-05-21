@@ -100,3 +100,45 @@ export async function deleteAutoReply(sessionId: string, ruleId: string) {
     await prisma.autoReply.delete({ where: { id: ruleId } });
     return { success: true };
 }
+
+export async function updateAutoReply(sessionId: string, ruleId: string, data: { keyword: string; response: string; matchType: string; isMedia: boolean; mediaUrl?: string | null; triggerType: string }) {
+    const nextAuthSession = await getAuthenticatedUserForAction();
+    if (!nextAuthSession) {
+        throw new Error("Unauthorized");
+    }
+
+    if (!data.keyword || !data.response) {
+        throw new Error("Missing required fields");
+    }
+
+    const rule = await prisma.autoReply.findUnique({
+        where: { id: ruleId },
+        include: { session: true }
+    });
+
+    if (!rule) {
+        throw new Error("Rule not found");
+    }
+
+    const canAccess = await canAccessSession(nextAuthSession.id, nextAuthSession.role, rule.session.sessionId);
+    if (!canAccess || rule.session.sessionId !== sessionId) {
+        throw new Error("Forbidden");
+    }
+
+    const updateData: Prisma.AutoReplyUncheckedUpdateInput = {
+        keyword: data.keyword,
+        response: data.response,
+        matchType: data.matchType || "EXACT",
+        isMedia: data.isMedia || false,
+        mediaUrl: data.mediaUrl || null,
+        // @ts-ignore
+        triggerType: data.triggerType || "ALL"
+    };
+
+    const updatedRule = await prisma.autoReply.update({
+        where: { id: ruleId },
+        data: updateData
+    });
+
+    return updatedRule;
+}

@@ -29,6 +29,7 @@ import {
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+import { SessionGuard } from "@/components/dashboard/session-guard";
 
 export const WAP_COLORS = [
     "#FF0000", "#FF7F00", "#FFFF00", "#00FF00", "#0000FF",
@@ -126,15 +127,15 @@ export default function LabelsPage() {
             const res = await fetch(`/api/labels/${sessionId}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name: currentName, color: currentColor })
+                body: JSON.stringify({ name: currentName.trim(), color: currentColor })
             });
             const data = await res.json();
 
             if (res.ok) {
                 toast.success("Label created successfully");
                 setIsCreateOpen(false);
-                fetchLabels();
                 resetForm();
+                fetchLabels();
             } else {
                 toast.error(data.message || "Failed to create label");
             }
@@ -158,15 +159,15 @@ export default function LabelsPage() {
             const res = await fetch(`/api/labels/${sessionId}/${currentLabelId}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name: currentName, color: currentColor })
+                body: JSON.stringify({ name: currentName.trim(), color: currentColor })
             });
             const data = await res.json();
 
             if (res.ok) {
                 toast.success("Label updated successfully");
                 setIsEditOpen(false);
-                fetchLabels();
                 resetForm();
+                fetchLabels();
             } else {
                 toast.error(data.message || "Failed to update label");
             }
@@ -188,7 +189,9 @@ export default function LabelsPage() {
 
             if (res.ok) {
                 toast.success("Label deleted successfully");
-                if (expandedLabelId === labelId) setExpandedLabelId(null);
+                if (expandedLabelId === labelId) {
+                    setExpandedLabelId(null);
+                }
                 fetchLabels();
             } else {
                 toast.error(data.message || "Failed to delete label");
@@ -223,20 +226,16 @@ export default function LabelsPage() {
     };
 
     const fetchChatLabels = async (labelId: string) => {
+        if (!sessionId) return;
         setChatLabelsLoading(true);
         try {
-            const res = await fetch(`/api/labels/${sessionId}/chats?labelId=${labelId}`);
-            
-            // If the endpoint doesn't exist, try fetching from chatLabel directly
-            if (!res.ok) {
-                // Fallback: Query the label's chatLabels via the label API
-                setChatLabels([]);
-                setChatLabelsLoading(false);
-                return;
-            }
-            
+            const res = await fetch(`/api/labels/${sessionId}/list/${labelId}`);
             const data = await res.json();
-            setChatLabels(data.data || []);
+            if (res.ok) {
+                setChatLabels(data.data || []);
+            } else {
+                setChatLabels([]);
+            }
         } catch (error) {
             console.error(error);
             setChatLabels([]);
@@ -335,24 +334,9 @@ export default function LabelsPage() {
         </div>
     );
 
-    if (!sessionId) {
-        return (
-            <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4 space-y-4">
-                <div className="h-16 w-16 bg-muted/50 rounded-full flex justify-center items-center">
-                    <Tag className="h-8 w-8 text-muted-foreground" />
-                </div>
-                <div>
-                    <h2 className="text-xl font-bold tracking-tight">No Session Selected</h2>
-                    <p className="text-muted-foreground mt-2 max-w-sm">
-                        Please select an active WhatsApp session from the sidebar to view labels.
-                    </p>
-                </div>
-            </div>
-        );
-    }
-
     return (
-        <div className="max-w-5xl space-y-6">
+        <SessionGuard>
+            <div className="max-w-5xl space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
                     <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Chat Labels</h1>
@@ -638,5 +622,6 @@ export default function LabelsPage() {
                 </DialogContent>
             </Dialog>
         </div>
+        </SessionGuard>
     );
 }

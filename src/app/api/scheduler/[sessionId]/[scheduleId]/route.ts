@@ -35,6 +35,20 @@ export async function PUT(
         const utcDate = moment.tz(sendAt, timezone).toDate();
         console.log(`[Scheduler:PUT] Resolved UTC Date: ${utcDate.toISOString()}`);
 
+        const msg = await prisma.scheduledMessage.findUnique({
+            where: { id: scheduleId },
+            include: { session: true }
+        });
+
+        if (!msg) {
+            return NextResponse.json({ status: false, message: "Message not found", error: "Message not found" }, { status: 404 });
+        }
+
+        // Verify the schedule belongs to this session
+        if (msg.session.sessionId !== sessionId) {
+            return NextResponse.json({ status: false, message: "Schedule not found in this session", error: "Schedule not found in this session" }, { status: 404 });
+        }
+
         const updated = await prisma.scheduledMessage.update({
             where: { id: scheduleId },
             data: {

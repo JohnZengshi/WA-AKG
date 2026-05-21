@@ -48,6 +48,7 @@ interface NavItem {
     icon: React.ElementType;
     external?: boolean;
     superadminOnly?: boolean;
+    allowedRoles?: string[];
 }
 
 const navGroups: NavGroup[] = [
@@ -96,7 +97,7 @@ const navGroups: NavGroup[] = [
         items: [
             { href: "/dashboard/media", label: "Media Manager", icon: HardDrive },
             { href: "/dashboard/sessions/access", label: "Session Access", icon: UserPlus },
-            { href: "/dashboard/users", label: "Users", icon: Users },
+            { href: "/dashboard/users", label: "Users", icon: Users, superadminOnly: true },
             { href: "/dashboard/settings", label: "Settings", icon: Settings },
             { href: "/dashboard/system-monitor", label: "System Monitor", icon: Activity, superadminOnly: true },
             { href: "/dashboard/notifications", label: "Notifications", icon: Bell, superadminOnly: true },
@@ -127,9 +128,11 @@ export function SidebarNav() {
         <TooltipProvider delayDuration={0}>
             <nav className="flex-1 px-2 py-2 overflow-y-auto overflow-x-hidden space-y-0.5 styled-scrollbar">
                 {navGroups.map((group) => {
-                    const visibleItems = group.items.filter(
-                        (item) => !item.superadminOnly || userRole === "SUPERADMIN"
-                    );
+                    const visibleItems = group.items.filter((item) => {
+                        if (item.superadminOnly && userRole !== "SUPERADMIN") return false;
+                        if (item.allowedRoles && (!userRole || !item.allowedRoles.includes(userRole))) return false;
+                        return true;
+                    });
                     if (visibleItems.length === 0) return null;
 
                     const isGroupCollapsed = collapsedGroups[group.label] ?? false;
