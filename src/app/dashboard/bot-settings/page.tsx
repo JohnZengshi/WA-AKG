@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { RefreshCw, Save, AlertCircle, Bot, X, Plus, ShieldCheck, Zap, UserCheck, MessageSquarePlus } from "lucide-react";
 import { toast } from "sonner";
+import { SessionGuard } from "@/components/dashboard/session-guard";
 
 export default function BotSettingsPage() {
     const { sessionId } = useSessionProvider();
@@ -106,11 +107,15 @@ export default function BotSettingsPage() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(botConfig)
             });
-            if (res.ok) toast.success("Bot settings saved successfully");
-            else toast.error("Failed to save bot settings");
+
+            if (res.ok) {
+                toast.success("Bot configuration saved");
+            } else {
+                toast.error("Failed to save bot configuration");
+            }
         } catch (e) {
             console.error(e);
-            toast.error("Error saving bot settings");
+            toast.error("Error saving bot configuration");
         } finally {
             setBotLoading(false);
         }
@@ -121,12 +126,22 @@ export default function BotSettingsPage() {
         setPrivacyLoading(true);
         try {
             const res = await fetch(`/api/sessions/${sessionId}/settings`, {
-                method: "PATCH",
+                method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ config: privacyConfig })
+                body: JSON.stringify({
+                    config: {
+                        ghostMode: privacyConfig.ghostMode,
+                        antiDelete: privacyConfig.antiDelete,
+                        readReceipts: privacyConfig.readReceipts
+                    }
+                })
             });
-            if (res.ok) toast.success("Privacy settings saved");
-            else toast.error("Failed to save privacy settings");
+
+            if (res.ok) {
+                toast.success("Privacy settings saved");
+            } else {
+                toast.error("Failed to save privacy settings");
+            }
         } catch (e) {
             console.error(e);
             toast.error("Error saving privacy settings");
@@ -159,37 +174,23 @@ export default function BotSettingsPage() {
     const inputClass = "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
 
     return (
-        <div className="space-y-6">
-            <div>
-                <h2 className="text-xl sm:text-3xl font-bold tracking-tight">Bot Settings</h2>
-                <p className="text-muted-foreground text-sm mt-1">Configure bot features and session privacy for the active WhatsApp session.</p>
-            </div>
+        <SessionGuard>
+            <div className="space-y-6">
+                <div>
+                    <h2 className="text-xl sm:text-3xl font-bold tracking-tight">Bot Settings</h2>
+                    <p className="text-muted-foreground text-sm mt-1">Configure bot features and session privacy for the active WhatsApp session.</p>
+                </div>
 
-            {/* No Session Selected */}
-            {!sessionId ? (
-                <Card className="border-dashed border-2 bg-background/50">
-                    <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-                        <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                            <Bot className="h-7 w-7 text-primary" />
-                        </div>
-                        <h3 className="text-lg font-semibold text-foreground">No Session Selected</h3>
-                        <p className="text-sm text-muted-foreground mt-1 max-w-sm">
-                            Please select an active WhatsApp session from the navigation bar above to configure its Bot and Privacy settings.
-                        </p>
-                    </CardContent>
-                </Card>
-            ) : (
-                <>
-                    {/* Bot Mode & Access Section */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <ShieldCheck className="h-5 w-5 text-primary" />
-                                Bot Mode & Access Control
-                            </CardTitle>
-                            <CardDescription>Configure who can interact with the bot and use commands.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-6">
+                {/* Bot Mode & Access Section */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <ShieldCheck className="h-5 w-5 text-primary" />
+                            Bot Mode & Access Control
+                        </CardTitle>
+                        <CardDescription>Configure who can interact with the bot and use commands.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
                             <div className="grid gap-2">
                                 <Label>Bot Name</Label>
                                 <Input
@@ -551,8 +552,7 @@ export default function BotSettingsPage() {
                             </div>
                         </CardContent>
                     </Card>
-                </>
-            )}
-        </div>
-    );
-}
+                </div>
+            </SessionGuard>
+        );
+    }

@@ -1,6 +1,6 @@
 import { NextResponse, NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAuthenticatedUser } from "@/lib/api-auth";
+import { getAuthenticatedUser, canAccessSession } from "@/lib/api-auth";
 
 export async function GET(request: NextRequest) {
     console.warn('[DEPRECATED] GET /api/webhooks is deprecated. Use GET /api/webhooks/{sessionId} instead.');
@@ -38,6 +38,11 @@ export async function POST(request: NextRequest) {
 
         let targetSessionId = null;
         if (sessionId) {
+            const canAccess = await canAccessSession(user.id, user.role, sessionId);
+            if (!canAccess) {
+                return NextResponse.json({ status: false, message: "Forbidden - Cannot access this session", error: "Forbidden - Cannot access this session" }, { status: 403 });
+            }
+
             const session = await prisma.session.findUnique({
                 where: { sessionId: sessionId },
                 select: { id: true }
