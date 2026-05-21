@@ -107,8 +107,9 @@ WA-AKG natively supports **n8n**! You can build complex, no-code/low-code WhatsA
 - Node.js 20+
 - PostgreSQL or MySQL
 - Git
+- Docker & Docker Compose (Optional, for Docker deployment)
 
-### 2. Setup
+### 2. Setup (Standard Setup)
 ```bash
 # Clone and install
 git clone https://github.com/mrifqidaffaaditya/WA-AKG.git
@@ -132,6 +133,23 @@ npm run dev
 # Production
 npm run build && npm start
 ```
+
+### 🐋 Docker Deployment (Zero Configuration)
+
+You can deploy the application and its MySQL database together using Docker Compose with zero initial configuration:
+
+1. **Start Services**:
+   Navigate to the `web` directory and run:
+   ```bash
+   cd web
+   docker compose up -d
+   ```
+   This automatically builds the Next.js application, pulls MySQL 8.0, creates database tables, and provisions the default SuperAdmin user:
+   - **Email**: `admin@example.com`
+   - **Password**: `admin123`
+
+2. **Customization (Optional)**:
+   To customize settings, edit the environment variables directly in `web/docker-compose.yml` (e.g. `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `AUTH_SECRET`, `TZ`, etc.), or copy `.env.example` to `.env` in the `web` folder.
 
 ---
 

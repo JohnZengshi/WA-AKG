@@ -20,6 +20,14 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import { SearchFilter } from "@/components/dashboard/search-filter";
 import { useSession } from "@/components/dashboard/session-provider";
 import { SessionGuard } from "@/components/dashboard/session-guard";
@@ -55,7 +63,13 @@ export default function SchedulerPage() {
     const [deleteId, setDeleteId] = useState<string | null>(null);
 
     // Edit state
-    const [editingId, setEditingId] = useState<string | null>(null);
+    const [isEditOpen, setIsEditOpen] = useState(false);
+    const [editId, setEditId] = useState<string | null>(null);
+    const [editJid, setEditJid] = useState("");
+    const [editContent, setEditContent] = useState("");
+    const [editSendAt, setEditSendAt] = useState("");
+    const [editMediaUrl, setEditMediaUrl] = useState("");
+    const [editMediaType, setEditMediaType] = useState("image");
 
     // Remove local updateSession logic as it is handled by provider
 
@@ -95,18 +109,17 @@ export default function SchedulerPage() {
     };
 
     const handleEdit = (msg: ScheduledMessage) => {
-        setEditingId(msg.id);
+        setEditId(msg.id);
         const jidUser = msg.jid.split('@')[0];
-        setNewJid(jidUser);
-        setNewContent(msg.content);
-        setNewMediaUrl(msg.mediaUrl || "");
-        setNewMediaType(msg.mediaType || "image");
+        setEditJid(jidUser);
+        setEditContent(msg.content);
+        setEditMediaUrl(msg.mediaUrl || "");
+        setEditMediaType(msg.mediaType || "image");
 
         // Format date for datetime-local input using correct system timezone
         const localIso = moment.tz(msg.sendAt, systemTimezone).format('YYYY-MM-DDTHH:mm');
-        setNewSendAt(localIso);
-
-        setShowForm(true);
+        setEditSendAt(localIso);
+        setIsEditOpen(true);
     };
 
     const handleSaveSchedule = async () => {
@@ -119,14 +132,8 @@ export default function SchedulerPage() {
         }
 
         try {
-            const url = editingId
-                ? `/api/scheduler/${selectedSessionId}/${editingId}`
-                : `/api/scheduler/${selectedSessionId}`;
-
-            const method = editingId ? "PUT" : "POST";
-
-            const res = await fetch(url, {
-                method,
+            const res = await fetch(`/api/scheduler/${selectedSessionId}`, {
+                method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     jid,
@@ -138,17 +145,55 @@ export default function SchedulerPage() {
             });
 
             if (res.ok) {
-                toast.success(editingId ? "Schedule updated" : "Message scheduled");
+                toast.success("Message scheduled");
                 setShowForm(false);
                 setNewJid("");
                 setNewContent("");
                 setNewSendAt("");
                 setNewMediaUrl("");
                 setNewMediaType("image");
-                setEditingId(null);
                 fetchMessages(selectedSessionId);
             } else {
-                toast.error(editingId ? "Failed to update schedule" : "Failed to schedule message");
+                toast.error("Failed to schedule message");
+            }
+        } catch (error) {
+            toast.error("An error occurred");
+        }
+    };
+
+    const handleUpdateSchedule = async () => {
+        if (!selectedSessionId || !editId || !editJid || !editContent || !editSendAt) return;
+
+        let jid = editJid;
+        if (!jid.includes("@")) {
+            jid = jid + "@s.whatsapp.net";
+        }
+
+        try {
+            const res = await fetch(`/api/scheduler/${selectedSessionId}/${editId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    jid,
+                    content: editContent,
+                    sendAt: editSendAt,
+                    mediaUrl: editMediaUrl,
+                    mediaType: editMediaType
+                })
+            });
+
+            if (res.ok) {
+                toast.success("Schedule updated");
+                setIsEditOpen(false);
+                setEditId(null);
+                setEditJid("");
+                setEditContent("");
+                setEditSendAt("");
+                setEditMediaUrl("");
+                setEditMediaType("image");
+                fetchMessages(selectedSessionId);
+            } else {
+                toast.error("Failed to update schedule");
             }
         } catch (error) {
             toast.error("An error occurred");
@@ -196,7 +241,6 @@ export default function SchedulerPage() {
                             Refresh
                         </Button>
                         <Button size="sm" className="flex-1 sm:flex-none" onClick={() => {
-                            setEditingId(null);
                             setNewJid("");
                             setNewContent("");
                             setNewSendAt("");
@@ -214,11 +258,11 @@ export default function SchedulerPage() {
                     onSearch={setSearchTerm}
                 />
 
-                {/* New/Edit Schedule Form */}
+                {/* New Schedule Form */}
                 {showForm && (
                     <Card className="border-2 border-primary/20">
                         <CardHeader>
-                            <CardTitle>{editingId ? "Edit Scheduled Message" : "Schedule New Message"}</CardTitle>
+                            <CardTitle>Schedule New Message</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
@@ -293,14 +337,13 @@ export default function SchedulerPage() {
                             <div className="flex justify-end gap-2">
                                 <Button variant="ghost" onClick={() => {
                                     setShowForm(false);
-                                    setEditingId(null);
                                     setNewJid("");
                                     setNewContent("");
                                     setNewSendAt("");
                                     setNewMediaUrl("");
                                     setNewMediaType("image");
                                 }}>Cancel</Button>
-                                <Button onClick={handleSaveSchedule}>{editingId ? "Update" : "Schedule"}</Button>
+                                <Button onClick={handleSaveSchedule}>Schedule</Button>
                             </div>
                         </CardContent>
                     </Card>
@@ -360,6 +403,83 @@ export default function SchedulerPage() {
                         </AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>
+
+                {/* Edit Scheduled Message Dialog Modal */}
+                <Dialog open={isEditOpen} onOpenChange={(open) => {
+                    setIsEditOpen(open);
+                    if (!open) {
+                        setEditId(null);
+                        setEditJid("");
+                        setEditContent("");
+                        setEditSendAt("");
+                        setEditMediaUrl("");
+                        setEditMediaType("image");
+                    }
+                }}>
+                    <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                        <DialogHeader>
+                            <DialogTitle>Edit Scheduled Message</DialogTitle>
+                            <DialogDescription>Modify the recipient, schedule time, message content, or media attachments.</DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label>Recipient JID</Label>
+                                    <Input
+                                        value={editJid}
+                                        onChange={e => setEditJid(e.target.value)}
+                                        placeholder="e.g. 62812345678"
+                                    />
+                                    <p className="text-xs text-muted-foreground">Type full JID or number. Domain will be appended if missing.</p>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Send At</Label>
+                                    <Input
+                                        type="datetime-local"
+                                        value={editSendAt}
+                                        onChange={e => setEditSendAt(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Message</Label>
+                                <Textarea
+                                    value={editContent}
+                                    onChange={e => setEditContent(e.target.value)}
+                                    placeholder="Hello there!"
+                                    rows={4}
+                                />
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label>Media URL (Optional)</Label>
+                                    <Input
+                                        value={editMediaUrl}
+                                        onChange={e => setEditMediaUrl(e.target.value)}
+                                        placeholder="https://example.com/image.jpg"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Media Type</Label>
+                                    <Select value={editMediaType} onValueChange={setEditMediaType}>
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="image">Image</SelectItem>
+                                            <SelectItem value="video">Video</SelectItem>
+                                            <SelectItem value="document">Document</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+                        </div>
+                        <DialogFooter className="gap-2">
+                            <Button variant="ghost" onClick={() => setIsEditOpen(false)}>Cancel</Button>
+                            <Button onClick={handleUpdateSchedule}>Save Changes</Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
             </div>
         </SessionGuard>
     );
