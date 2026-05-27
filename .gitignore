@@ -44,5 +44,7 @@ next-env.d.ts
 # media files (downloaded by app)
 /data/media/*
 !/data/media/.gitkeep
+/data/mysql/*
+!/data/mysql/.gitkeep
 /public/media/*
 server.log
