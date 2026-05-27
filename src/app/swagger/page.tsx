@@ -12,15 +12,22 @@ export default function ApiDocsPage() {
     const [error, setError] = useState("");
 
     useEffect(() => {
-        // Suppress Swagger UI legacy lifecycle warnings (ModelCollapse)
+        // Suppress Swagger UI legacy lifecycle warnings (ModelCollapse, ParameterRow, etc.)
+        // React 19 logs these as console.error, not console.warn
         const originalWarn = console.warn;
+        const originalError = console.error;
+        const isUnsafeLifecycleWarning = (args: unknown[]) => {
+            const msg = args.map(String).join(' ');
+            return msg.includes('UNSAFE_componentWillReceiveProps');
+        };
+
         console.warn = (...args) => {
-            if (typeof args[0] === 'string' &&
-                args[0].includes('UNSAFE_componentWillReceiveProps') &&
-                args[0].includes('ModelCollapse')) {
-                return;
-            }
+            if (isUnsafeLifecycleWarning(args)) return;
             originalWarn(...args);
+        };
+        console.error = (...args) => {
+            if (isUnsafeLifecycleWarning(args)) return;
+            originalError(...args);
         };
 
         // Check if already authorized via session storage
@@ -32,6 +39,7 @@ export default function ApiDocsPage() {
 
         return () => {
             console.warn = originalWarn;
+            console.error = originalError;
         };
     }, []);
 
