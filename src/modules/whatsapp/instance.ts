@@ -31,13 +31,46 @@ export class WhatsAppInstance {
 
     isStopped: boolean = false;
 
+    // Reconnection control
+    private reconnectAttempts: number = 0;
+    private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    private initLock: boolean = false;
+    private readonly MAX_RECONNECT_DELAY = 30000; // 30s cap
+    private readonly INITIAL_RECONNECT_DELAY = 2000; // 2s first retry
+
     constructor(sessionId: string, userId: string, io: Server) {
         this.sessionId = sessionId;
         this.userId = userId;
         this.io = io;
     }
 
+    private cleanup() {
+        // Clear any pending reconnection
+        if (this.reconnectTimer) {
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = null;
+        }
+
+        // End old socket properly
+        if (this.socket) {
+            try {
+                this.socket.ev.removeAllListeners("connection.update");
+                this.socket.ev.removeAllListeners("creds.update");
+                this.socket.end(undefined);
+                this.socket = null;
+            } catch (e) {
+                // Ignore cleanup errors
+            }
+        }
+    }
+
     async init() {
+        if (this.initLock) return; // Prevent concurrent init calls
+        this.initLock = true;
+
+        // Clean up previous socket before creating a new one
+        this.cleanup();
+
         const sessionData = await prisma.session.findUnique({
             where: { sessionId: this.sessionId },
             include: { botConfig: true }
@@ -81,6 +114,8 @@ export class WhatsAppInstance {
         this.socket.ev.on("connection.update", async (update) => {
             await this.handleConnectionUpdate(update);
         });
+
+        this.initLock = false; // Allow future reconnections
     }
 
     async handleConnectionUpdate(update: Partial<ConnectionState>) {
@@ -131,8 +166,15 @@ export class WhatsAppInstance {
                 }
 
                 if (shouldReconnect) {
-                    // Connection lost unexpectedly, reconnect
-                    this.init();
+                    // Connection lost unexpectedly, reconnect with exponential backoff
+                    this.reconnectAttempts++;
+                    const delay = Math.min(
+                        this.INITIAL_RECONNECT_DELAY * Math.pow(1.5, this.reconnectAttempts - 1),
+                        this.MAX_RECONNECT_DELAY
+                    );
+                    logger.warn("Instance", `Session ${this.sessionId} disconnected. Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})...`);
+                    this.initLock = false; // Allow next init
+                    this.reconnectTimer = setTimeout(() => this.init(), delay);
                 } else if (isLoggedOut) {
                     // Explicit logout: delete credentials
                     logger.info("Instance", `Session ${this.sessionId} logged out. Deleting credentials...`);
@@ -162,6 +204,7 @@ export class WhatsAppInstance {
                 this.status = "CONNECTED";
                 this.qr = null;
                 this.startTime = new Date();
+                this.reconnectAttempts = 0; // Reset reconnect counter on successful connection
 
                 this.io?.to(this.sessionId).emit("connection.update", { status: this.status, qr: null });
 
