@@ -71,6 +71,7 @@
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19",
     "@types/swagger-ui-react": "^5.18.0",
+    "code-inspector-plugin": "^1.5.1",
     "eslint": "^9",
     "eslint-config-next": "16.1.1",
     "next-swagger-doc": "^0.4.1",
