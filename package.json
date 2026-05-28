@@ -13,6 +13,7 @@
     "dev:env": "node scripts/dev-env.mjs",
     "dev:app": "node scripts/dev-app.mjs",
     "dev:stop": "node scripts/dev-stop.mjs",
+    "dev:remote": "DATABASE_URL=postgresql://postgres:postgres@10.0.0.228:5432/wa_gateway_db?schema=public npx tsx src/server/index.ts",
     "postinstall": "patch-package"
   },
   "dependencies": {
