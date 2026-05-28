@@ -272,6 +272,35 @@ docker compose down
 
 ---
 
+### 🐋 Docker Production Deployment (PostgreSQL / External DB)
+
+If you already have a PostgreSQL instance (managed or self-hosted) and prefer not to bundle a database container, use the production Compose file:
+
+```bash
+# Start the app only (assumes PostgreSQL is already running)
+docker compose -f docker-compose-prod.yml up -d
+```
+
+This variant **does not include a database container** — it connects to an external PostgreSQL instance via `DATABASE_URL`. The app container still:
+
+- Builds Next.js inside the Docker image (multi-stage build)
+- Persists WhatsApp session data in `./data/app`
+- Persists media uploads in `./data/uploads`
+- Auto-creates a SuperAdmin on first startup
+
+**Customization** (edit `docker-compose-prod.yml`):
+
+| Variable | Description | Example |
+|---|---|---|
+| `DATABASE_URL` | PostgreSQL connection string | `postgresql://user:pass@host:5432/db?schema=public` |
+| `BASE_URL` / `NEXTAUTH_URL` | Public-facing URL | `https://your-domain.com` |
+| `AUTH_SECRET` | NextAuth secret | `openssl rand -base64 32` |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Initial SuperAdmin | `admin@admin.com` / `admin123` |
+| `TZ` | Timezone | `Asia/Shanghai` |
+| `PORT` | App port inside container | `3333` |
+
+---
+
 ## 🔧 Common Errors & Troubleshooting
 
 ### Startup Failures
