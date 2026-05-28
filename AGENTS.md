@@ -74,9 +74,10 @@ src/
 
 | Script | Purpose |
 |---|---|
-| `npm run dev:env` | Start MySQL container, install deps, push schema, create admin (run once) |
+| `npm run dev:env` | Start PostgreSQL container, install deps, push schema, create admin (run once) |
 | `npm run dev:app` | Clear .next cache and start dev server (restartable) |
-| `npm run dev:stop` | Stop and remove MySQL container |
+| `npm run dev:stop` | Stop and remove PostgreSQL container |
+| `npm run dev:remote` | Dev server with remote PostgreSQL (no local Docker) |
 | `npm run dev` | Direct dev server (no env setup) |
 | `npm run build` | Production build |
 | `npm start` | Production server start |
@@ -113,8 +114,8 @@ src/
 |---|---|---|
 | Dev App | 3001 | `PORT` in `.env` |
 | Prod/Manual Dev | 3000 | `PORT` in `.env` |
-| Dev MySQL | 3307 | `DATABASE_URL` in `.env` |
-| Docker MySQL | 3306 | docker-compose.yml |
+| Dev PostgreSQL | 5432 | `DATABASE_URL` in `.env` |
+| Docker PostgreSQL | 5432 | docker-compose.yml |
 
 ## CodeGraph
 
