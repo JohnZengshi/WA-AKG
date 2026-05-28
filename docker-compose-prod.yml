@@ -1,0 +1,53 @@
+services:
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: wa-akg-app
+    restart: always
+    ports:
+      - "3333:3333"
+    environment:
+      # ── Database ──
+      - DATABASE_URL=postgresql://postgres:postgres@10.0.0.228:5432/wa_gateway_db?schema=public
+
+      # ── Authentication ──
+      # ⚠️ 生产环境请务必更换 AUTH_SECRET: openssl rand -base64 32
+      - AUTH_SECRET=NX81sgcjLA9gwnf6ncSozvvBnnA+ywhNW38kpTzPU94=
+
+      # ── URL 配置 ──
+      # ⚠️ 部署到服务器后修改为你的域名，如 https://your-domain.com
+      - BASE_URL=http://10.0.0.228:3333
+      - NEXTAUTH_URL=http://10.0.0.228:3333
+      - NEXT_PUBLIC_APP_URL=http://10.0.0.228:3333
+      - NEXT_PUBLIC_API_URL=http://10.0.0.228:3333/api
+
+      # ── 应用环境 ──
+      - NODE_ENV=production
+      - PORT=3333
+      - HOSTNAME=0.0.0.0
+
+      # ── Baileys (WhatsApp) 日志 ──
+      - BAILEYS_LOG_LEVEL=error
+
+      # ── Swagger API 文档 ──
+      # ⚠️ 生产环境请修改这里的登录凭据
+      - NEXT_PUBLIC_SWAGGER_USERNAME=admin
+      - NEXT_PUBLIC_SWAGGER_PASSWORD=admin123
+      - NEXT_PUBLIC_SWAGGER_ENABLED=true
+
+      # ── 默认管理员（首次启动自动创建） ──
+      # ⚠️ 部署后请立即修改密码
+      - ADMIN_EMAIL=admin@admin.com
+      - ADMIN_PASSWORD=admin123
+
+      # ── 时区 / 本地化 ──
+      - TZ=Asia/Shanghai
+      - LOCALE=id-ID
+
+      # ── 其他 ──
+      - AUTH_TRUST_HOST=true
+    volumes:
+      - ./data/app:/app/data
+      - ./data/uploads:/app/uploads
