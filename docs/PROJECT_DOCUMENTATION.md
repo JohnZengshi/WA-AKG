@@ -104,9 +104,13 @@ Every incoming message follows this path:
 
 ## 🚀 Environment & Deployment
 
-Configuration is centralized in `.env`. The project natively supports standard bare-metal builds (`npm run build`) and Docker containerized deployment (`web/docker-compose.yml`) which coordinates:
-1. A MySQL 8.0 instance with persistent volume storage for schema data.
-2. Next.js gateway web container running on custom tsx server with automated startup database synchronization (`npx prisma db push`).
+Configuration is centralized in `.env`. The project natively supports standard bare-metal builds (`npm run build`) and Docker containerized deployment via two Compose files:
+
+- **`docker-compose.yml`** — Bundled MySQL 8.0 stack for development or self-contained production. Coordinates:
+  1. A MySQL 8.0 instance with persistent volume storage for schema data.
+  2. Next.js gateway web container running on custom tsx server with automated startup database synchronization (`npx prisma db push`).
+
+- **`docker-compose-prod.yml`** — Production-only stack for deployments with an existing external PostgreSQL instance. App container only; database is expected to be managed separately (RDS, Supabase, Neon, etc.).
 
 > [!IMPORTANT]
 > Always run `npm run db:push` after updates on bare-metal, or use Docker Compose which executes this step automatically on container startup.

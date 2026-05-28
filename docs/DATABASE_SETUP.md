@@ -11,12 +11,14 @@ Ensure you have a database server running.
 
 ## 2. Docker Compose Stack Setup (Zero Configuration)
 
-The project includes a `docker-compose.yml` in the `web/` directory that defines a MySQL 8.0 container (`wa-akg-db`) and the Next.js gateway container (`wa-akg-app`).
+The project includes two Docker Compose configurations:
+
+### 2a. MySQL Stack (Bundled Database) — `docker-compose.yml`
+
+Defines a MySQL 8.0 container (`wa-akg-db`) alongside the Next.js gateway container (`wa-akg-app`) — everything runs locally with zero external dependencies.
 
 1. **Start Stack**:
-   From the `web/` directory, run:
    ```bash
-   cd web
    docker compose up -d
    ```
 2. **Automated Setup**:
@@ -29,6 +31,26 @@ The project includes a `docker-compose.yml` in the `web/` directory that defines
 
 3. **Custom Configuration (Optional)**:
    If you wish to change defaults (like database connection details, admin login, timezone, or secrets), you can edit the environment values directly in `web/docker-compose.yml`, or copy `web/.env.example` to `web/.env` and edit it before running docker compose.
+
+### 2b. PostgreSQL Stack (External Database) — `docker-compose-prod.yml`
+
+For production deployments where you already have a PostgreSQL instance (managed RDS, Supabase, Neon, etc.), use the production Compose file. It **does not include a database container** — only the app.
+
+1. **Start Stack**:
+   ```bash
+   docker compose -f docker-compose-prod.yml up -d
+   ```
+
+2. **Prerequisite**: Ensure your PostgreSQL server is running and reachable. Update `DATABASE_URL` in `docker-compose-prod.yml` to point to your instance:
+   ```yaml
+   - DATABASE_URL=postgresql://user:pass@your-db-host:5432/wa_gateway_db?schema=public
+   ```
+
+3. **Automated Setup**: On startup, the container automatically:
+   - Pushes the database schema and creates all tables (`npx prisma db push`).
+   - Provisions a default SuperAdmin account.
+
+4. **Custom Configuration**: Edit `docker-compose-prod.yml` to set your production values for `AUTH_SECRET`, `BASE_URL`, Swagger credentials, etc.
 
 ---
 
