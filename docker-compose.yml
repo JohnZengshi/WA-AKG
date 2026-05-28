@@ -1,17 +1,18 @@
 services:
   db:
-    image: mysql:8.0
+    image: postgres:16
     container_name: wa-akg-db
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: rootpassword
-      MYSQL_DATABASE: wa_akg
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: wa_akg
     ports:
-      - "3306:3306"
+      - "5432:5432"
     volumes:
-      - ./data/mysql:/var/lib/mysql
+      - ./data/pg:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      test: [ "CMD", "pg_isready", "-U", "postgres" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -26,7 +27,7 @@ services:
       - "3000:3000"
     environment:
       # ── Database ──
-      - DATABASE_URL=mysql://root:rootpassword@db:3306/wa_akg
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/wa_akg?schema=public
 
       # ── Authentication ──
       # ⚠️ 生产环境请务必更换 AUTH_SECRET: openssl rand -base64 32
