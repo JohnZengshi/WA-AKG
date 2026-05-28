@@ -39,15 +39,16 @@ export async function isPortOpen(port, host = "127.0.0.1") {
   });
 }
 
-export async function isMySQLPort(port, host = "127.0.0.1") {
+export async function isPostgresPort(port, host = "127.0.0.1") {
   return new Promise((resolve) => {
     const sock = new net.Socket();
     sock.setTimeout(3000);
     let detected = false;
     sock.on("data", (data) => {
-      if (data.length >= 5) {
-        const versionLen = data[4];
-        if (versionLen > 0 && versionLen < 100) {
+      // PostgreSQL sends 'R' (AuthRequest, 0x52) or 'N' (NoticeResponse, 0x4E) as first byte
+      if (data.length >= 1) {
+        const firstByte = data[0];
+        if (firstByte === 0x52 || firstByte === 0x4E) {
           detected = true;
         }
       }
@@ -62,20 +63,20 @@ export async function isMySQLPort(port, host = "127.0.0.1") {
 }
 
 /**
- * Parse MYSQL_PORT and APP_PORT from .env file.
- * Returns { MYSQL_PORT: number, APP_PORT: number } with defaults 3307 / 3001.
+ * Parse DB_PORT and APP_PORT from .env file.
+ * Returns { DB_PORT: number, APP_PORT: number } with defaults 5432 / 3001.
  */
 export function parseEnvPorts() {
-  let MYSQL_PORT = 3307;
+  let DB_PORT = 5432;
   let APP_PORT = 3001;
   try {
     const envPath = path.join(ROOT, ".env");
     if (existsSync(envPath)) {
       const envContent = readFileSync(envPath, "utf-8");
-      const match = envContent.match(/^DATABASE_URL="mysql:\/\/[^:]+:[^@]+@localhost:(\d+)\/wa_akg"/m);
+      const match = envContent.match(/^DATABASE_URL="postgresql:\/\/[^:]+:[^@]+@localhost:(\d+)\//m);
       if (match) {
         const p = parseInt(match[1], 10);
-        if (!isNaN(p) && p > 0) MYSQL_PORT = p;
+        if (!isNaN(p) && p > 0) DB_PORT = p;
       }
       const portMatch = envContent.match(/^PORT\s*=\s*"?(\d+)"?/m);
       if (portMatch) {
@@ -84,5 +85,5 @@ export function parseEnvPorts() {
       }
     }
   } catch { /* ignore */ }
-  return { MYSQL_PORT, APP_PORT };
+  return { DB_PORT, APP_PORT };
 }
