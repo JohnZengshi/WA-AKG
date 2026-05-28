@@ -4,7 +4,7 @@
 // ==============================================
 // Clears .next cache and starts the dev server.
 // Assumes environment is already set up
-// (MySQL running, deps installed, schema pushed).
+// (PostgreSQL running, deps installed, schema pushed).
 //
 // Usage:   node scripts/dev-app.mjs
 // ==============================================
@@ -48,7 +48,7 @@ export async function startApp() {
     shell: true,
   });
 
-  // Graceful shutdown — does NOT touch MySQL (env script manages that)
+  // Graceful shutdown — does NOT touch database (env script manages that)
   const shutdown = () => {
     console.log("");
     log("Shutting down dev server...", "yellow");
