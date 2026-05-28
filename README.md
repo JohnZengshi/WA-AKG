@@ -216,6 +216,24 @@ npm run dev
 # App will be available at http://localhost:3000
 ```
 
+#### Option C: Quick Start with Remote PostgreSQL
+
+If you have a remote PostgreSQL database already initialized (schema + admin created), skip the local Docker setup entirely:
+
+```bash
+# 1. Clone and install
+git clone https://github.com/mrifqidaffaaditya/WA-AKG.git
+cd WA-AKG
+npm install
+
+# 2. Start directly with remote database
+npm run dev:remote
+
+# App will be available at http://localhost:3000
+```
+
+> The `dev:remote` script sets `DATABASE_URL` to the remote PostgreSQL instance and starts the dev server in one step. No local Docker or database setup needed. Customize by editing the script in `package.json`.
+
 ### 🔹 Production Environment
 
 ```bash
@@ -372,8 +390,9 @@ docker compose up -d
 |---|---|---|
 | App (Dev - `npm run dev:app`) | `3001` | `PORT` in `.env` |
 | App (Manual Dev/Prod) | `3000` | `PORT` in `.env` |
-| MySQL (Dev - `npm run dev:env`) | `3307` | `DATABASE_URL` in `.env` |
-| MySQL (Docker Compose) | `3306` | `docker-compose.yml` ports mapping |
+| App (`npm run dev:remote`) | `3000` | Inline `DATABASE_URL` env |
+| PostgreSQL (Dev - `npm run dev:env`) | `5432` | `DATABASE_URL` in `.env` |
+| PostgreSQL (Docker Compose) | `5432` | `docker-compose.yml` ports mapping |
 
 ### Performance Tuning
 
