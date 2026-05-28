@@ -1,0 +1,45 @@
+# dependencies
+node_modules
+.pnp
+.pnp.*
+.yarn
+
+# next.js build output
+.next
+out
+
+# production build
+build
+
+# env files
+.env
+.env*.local
+
+# git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+
+# OS files
+.DS_Store
+*.pem
+
+# debug logs
+npm-debug.log*
+yarn-debug.log*
+*.log
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# project data
+data/media
+data/mysql
+
+# markdown (except docs/ which the app loads at runtime)
+*.md
+!docs/*.md
