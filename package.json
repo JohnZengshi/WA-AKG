@@ -10,6 +10,9 @@
     "db:push": "prisma db push && prisma generate",
     "db:studio": "prisma studio",
     "make-admin": "node scripts/setup-admin.js",
+    "dev:env": "node scripts/dev-env.mjs",
+    "dev:app": "node scripts/dev-app.mjs",
+    "dev:stop": "node scripts/dev-stop.mjs",
     "postinstall": "patch-package"
   },
   "dependencies": {
