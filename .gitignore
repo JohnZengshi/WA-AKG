@@ -20,6 +20,9 @@
 # production
 /build
 
+# editor
+.vscode/
+
 # misc
 .DS_Store
 *.pem
@@ -41,10 +44,12 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# media files (downloaded by app)
-/data/media/*
+# data directories (Docker bind mounts)
+/data/*
+!/data/.gitkeep
 !/data/media/.gitkeep
-/data/mysql/*
 !/data/mysql/.gitkeep
+!/data/app/.gitkeep
+!/data/uploads/.gitkeep
 /public/media/*
 server.log

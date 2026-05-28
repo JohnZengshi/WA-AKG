@@ -42,6 +42,7 @@
     "next-auth": "^5.0.0-beta.30",
     "nextjs-toploader": "^3.9.17",
     "node-cron": "^4.2.1",
+    "openapi-types": "^12.1.3",
     "pino": "^10.1.0",
     "prisma": "^5.22.0",
     "qrcode": "^1.5.4",
