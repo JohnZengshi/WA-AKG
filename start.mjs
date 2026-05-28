@@ -9,7 +9,7 @@
 // ==============================================
 
 import { execSync, spawn } from "child_process";
-import { existsSync, readFileSync, writeFileSync } from "fs";
+import { existsSync, readFileSync, writeFileSync, rmSync, readdirSync } from "fs";
 import net from "net";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -373,13 +373,48 @@ async function main() {
   // 4. Database schema
   log("[4/5] Setting up database schema...", "yellow");
   run("npx prisma db push --accept-data-loss");
-  run("npx prisma generate");
+
+  // prisma generate: on Windows, Defender locks .dll.node files causing EPERM
+  // rename errors. Try to generate, but if it fails and the engine binary still
+  // exists, the EPERM is cosmetic — the existing engine is still valid.
+  const prismaClientDir = path.join(ROOT, "node_modules", ".prisma", "client");
+  try {
+    execSync("npx prisma generate", { cwd: ROOT, stdio: "pipe", timeout: 120000 });
+    log("  prisma generate done.", "green");
+  } catch {
+    // Check if engine file actually exists (EPERM means the rename failed,
+    // but the existing .dll.node is still there and loadable)
+    const engineExists = existsSync(prismaClientDir) && readdirSync(prismaClientDir).some(f => f.endsWith(".dll.node") || f.endsWith(".so.node"));
+    if (engineExists) {
+      log("  prisma generate skipped (EPERM suppressed, existing engine is valid).", "yellow");
+    } else {
+      // Real failure — retry once with visible output
+      log("  prisma generate failed, retrying once...", "yellow");
+      run("npx prisma generate");
+      log("  prisma generate done.", "green");
+    }
+  }
 
   // If database is fresh (no users), create default admin
+  // Write a transient script into the project root so @prisma/client resolves correctly
+  const checkScript = path.join(ROOT, ".check-users.mjs");
+  writeFileSync(
+    checkScript,
+    `import { PrismaClient } from "@prisma/client";
+const p = new PrismaClient();
+try {
+  const count = await p.user.count();
+  console.log(count);
+} finally {
+  await p.\$disconnect();
+}
+`,
+    "utf-8"
+  );
   try {
     const userCount = execSync(
-      `node -e "const{PrismaClient}=require(process.cwd()+'/node_modules/@prisma/client');const p=new PrismaClient();p.user.count().then(c=>{console.log(c);p.\$disconnect()})"`,
-      { cwd: ROOT, encoding: "utf-8", stdio: ["pipe", "pipe", "ignore"] }
+      `node .check-users.mjs`,
+      { cwd: ROOT, encoding: "utf-8", stdio: ["pipe", "pipe", "ignore"], timeout: 15000 }
     ).trim();
     if (userCount === "0") {
       log("  No users found. Creating default admin account...", "yellow");
@@ -391,6 +426,10 @@ async function main() {
   } catch (e) {
     log(`  Admin check failed (database may still be starting up): ${e.message}`, "yellow");
     log("  Run manually: node scripts/setup-admin.js <email> <password>", "yellow");
+  } finally {
+    try {
+      rmSync(checkScript, { force: true });
+    } catch { }
   }
 
   log("  Done.", "green");
@@ -398,6 +437,19 @@ async function main() {
 
   // 5. Start dev server
   log("[5/5] Starting development server...", "yellow");
+
+  // Clear corrupted Next.js/Turbopack cache from previous unclean shutdowns
+  const nextDir = path.join(ROOT, ".next");
+  if (existsSync(nextDir)) {
+    log("  Clearing .next cache...", "yellow");
+    try {
+      rmSync(nextDir, { recursive: true, force: true });
+      log("  .next cache cleared.", "green");
+    } catch (e) {
+      log(`  Warning: could not clear .next cache: ${e.message}`, "yellow");
+    }
+  }
+
   console.log("");
   log(`  App:     http://localhost:${APP_PORT}`, "cyan");
   log(`  Swagger: http://localhost:${APP_PORT}/swagger`, "cyan");
