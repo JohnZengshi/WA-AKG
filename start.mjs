@@ -16,7 +16,10 @@ import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname);
-const MYSQL_CONTAINER = "wa-akg-db";
+const MYSQL_CONTAINER = "wa-akg-db-dev";
+const MYSQL_DATA_DIR = path.join(ROOT, "data", "mysql-dev");
+let MYSQL_PORT = 3307; // 默认端口
+let APP_PORT = 3001; // 默认端口
 
 function log(msg, color = "") {
   const colors = {
@@ -42,7 +45,7 @@ async function waitForDocker(password) {
         { stdio: "ignore" }
       );
       return true;
-    } catch {}
+    } catch { }
     await new Promise((r) => setTimeout(r, 2000));
   }
   return false;
@@ -53,6 +56,30 @@ function isPortOpen(port, host = "127.0.0.1") {
     const sock = new net.Socket();
     sock.setTimeout(2000);
     sock.on("connect", () => { sock.destroy(); resolve(true); });
+    sock.on("error", () => resolve(false));
+    sock.on("timeout", () => { sock.destroy(); resolve(false); });
+    sock.connect(port, host);
+  });
+}
+
+function isMySQLPort(port, host = "127.0.0.1") {
+  return new Promise((resolve) => {
+    const sock = new net.Socket();
+    sock.setTimeout(3000);
+    let detected = false;
+    sock.on("data", (data) => {
+      // MySQL initial handshake: the 5th byte (index 4) is the length of
+      // the server version string — typically 5-30 bytes
+      if (data.length >= 5) {
+        const versionLen = data[4];
+        if (versionLen > 0 && versionLen < 100) {
+          detected = true;
+        }
+      }
+      sock.destroy();
+    });
+    sock.on("connect", () => { });
+    sock.on("close", () => resolve(detected));
     sock.on("error", () => resolve(false));
     sock.on("timeout", () => { sock.destroy(); resolve(false); });
     sock.connect(port, host);
@@ -84,6 +111,25 @@ function containerExists(container) {
 }
 
 async function main() {
+  // Parse MySQL port from DATABASE_URL in .env if it exists
+  try {
+    const envPath = path.join(ROOT, ".env");
+    if (existsSync(envPath)) {
+      const envContent = readFileSync(envPath, "utf-8");
+      const match = envContent.match(/^DATABASE_URL="mysql:\/\/[^:]+:[^@]+@localhost:(\d+)\/wa_akg"/m);
+      if (match) {
+        const p = parseInt(match[1], 10);
+        if (!isNaN(p) && p > 0) MYSQL_PORT = p;
+      }
+      // Parse app server port from PORT in .env
+      const portMatch = envContent.match(/^PORT\s*=\s*"?(\d+)"?/m);
+      if (portMatch) {
+        const p = parseInt(portMatch[1], 10);
+        if (!isNaN(p) && p > 0) APP_PORT = p;
+      }
+    }
+  } catch { }
+
   console.log("");
   log("========================================", "cyan");
   log("  WA-AKG Startup Script", "cyan");
@@ -102,14 +148,47 @@ async function main() {
     log("  Error: Docker is not installed or Docker Desktop is not running.", "red");
     process.exit(1);
   }
+  // Auto-start Colima if installed but not running (macOS only via Colima; Windows uses Docker Desktop)
+  const colimaBin = process.platform === "win32" ? "where colima" : "which colima";
+  try {
+    execSync(colimaBin, { stdio: "pipe" });
+    // colima is installed, check if running
+    try {
+      execSync("colima status", { stdio: "pipe" });
+    } catch {
+      log("  Colima is installed but not running. Starting Colima...", "yellow");
+      execSync("colima start", { stdio: "inherit" });
+      log("  Colima started.", "green");
+    }
+    // Switch Docker context to colima after starting
+    try {
+      execSync("docker context use colima", { stdio: "pipe" });
+      log("  Switched Docker context to colima.", "green");
+    } catch {
+      log("  Warning: could not switch Docker context to colima.", "yellow");
+    }
+  } catch {
+    // colima not installed, proceed normally
+  }
   console.log("");
 
   // 2. Start MySQL
   log("[2/5] Starting MySQL via Docker...", "yellow");
 
-  const port3306 = await isPortOpen(3306);
+  const port3306 = await isPortOpen(MYSQL_PORT);
+  let mysqlOn3306 = false;
   if (port3306) {
-    log("  MySQL is already running on port 3306.", "green");
+    // Verify it's actually MySQL, not just something occupying the port
+    mysqlOn3306 = await isMySQLPort(MYSQL_PORT);
+    if (mysqlOn3306) {
+      log(`  MySQL is already running on port ${MYSQL_PORT}.`, "green");
+    } else {
+      log(`  Port ${MYSQL_PORT} is in use by a non-MySQL service. Will start our own MySQL container.`, "yellow");
+    }
+  }
+
+  if (mysqlOn3306) {
+    // Real MySQL is running externally — skip container creation entirely
   } else if (isDockerRunning(MYSQL_CONTAINER)) {
     log("  MySQL container already running.", "green");
   } else if (containerExists(MYSQL_CONTAINER)) {
@@ -128,11 +207,16 @@ async function main() {
   }
 
   // Create MySQL container (if it doesn't exist or was removed above)
-  if (!isDockerRunning(MYSQL_CONTAINER) && !port3306) {
-    try { execSync(`docker rm -f ${MYSQL_CONTAINER}`, { stdio: "ignore" }); } catch {}
+  if (!isDockerRunning(MYSQL_CONTAINER) && !mysqlOn3306) {
+    try { execSync(`docker rm -f ${MYSQL_CONTAINER}`, { stdio: "ignore" }); } catch { }
 
     // Check if image exists locally, pull if needed
-    const imageExists = execSync(`docker images -q mysql:8.0`, { encoding: "utf-8", stdio: ["pipe", "pipe", "ignore"] }).trim();
+    let imageExists = '';
+    try {
+      imageExists = execSync(`docker images -q mysql:8.0`, { encoding: "utf-8", stdio: ["pipe", "pipe", "ignore"] }).trim();
+    } catch {
+      imageExists = '';
+    }
     if (!imageExists) {
       // Try multiple registries (China-friendly mirrors)
       const registries = [
@@ -170,19 +254,43 @@ async function main() {
 
     run(
       `docker run -d ` +
-        `--name ${MYSQL_CONTAINER} ` +
-        `-e MYSQL_ROOT_PASSWORD=rootpassword ` +
-        `-e MYSQL_DATABASE=wa_akg ` +
-        `-v "${ROOT}\\data\\mysql:/var/lib/mysql" ` +
-        `-p 3306:3306 ` +
-        `mysql:8.0`
+      `--name ${MYSQL_CONTAINER} ` +
+      `-e MYSQL_ROOT_PASSWORD=rootpassword ` +
+      `-e MYSQL_DATABASE=wa_akg ` +
+      `-v "${MYSQL_DATA_DIR}:/var/lib/mysql" ` +
+      `-p ${MYSQL_PORT}:3306 ` +
+      `mysql:8.0`
     );
 
     log("  Waiting for MySQL to be ready...");
     const ready = await waitForDocker("rootpassword");
     if (!ready) {
-      log("  MySQL failed to start. Check 'docker logs " + MYSQL_CONTAINER + "'", "red");
-      process.exit(1);
+      // Check for common startup failures and auto-recover
+      const logs = execSync(`docker logs ${MYSQL_CONTAINER} 2>&1`, { encoding: "utf-8", stdio: ["pipe", "pipe", "ignore"] });
+      if (logs.includes("Unable to lock") || logs.includes("ibdata1") || logs.includes("OS errno 11") || logs.includes("Error: 11")) {
+        log("  Data directory locked by another process (macOS Spotlight/Cloud). Clearing and retrying...", "yellow");
+        execSync(`docker rm -f ${MYSQL_CONTAINER}`, { stdio: "ignore" });
+        try { execSync(`rm -rf "${MYSQL_DATA_DIR}"`, { stdio: "ignore" }); } catch { }
+        // Retry once
+        run(
+          `docker run -d ` +
+          `--name ${MYSQL_CONTAINER} ` +
+          `-e MYSQL_ROOT_PASSWORD=rootpassword ` +
+          `-e MYSQL_DATABASE=wa_akg ` +
+          `-v "${MYSQL_DATA_DIR}:/var/lib/mysql" ` +
+          `-p ${MYSQL_PORT}:3306 ` +
+          `mysql:8.0`
+        );
+        log("  Waiting for MySQL to be ready (retry)...");
+        const retryReady = await waitForDocker("rootpassword");
+        if (!retryReady) {
+          log("  MySQL still failed to start after retry. Check 'docker logs " + MYSQL_CONTAINER + "'", "red");
+          process.exit(1);
+        }
+      } else {
+        log("  MySQL failed to start. Check 'docker logs " + MYSQL_CONTAINER + "'", "red");
+        process.exit(1);
+      }
     }
     log("  MySQL is ready.", "green");
   }
@@ -194,34 +302,71 @@ async function main() {
   log("  Done.", "green");
   console.log("");
 
-  // 3.5. Ensure .env exists with correct DATABASE_URL
+  // 3.5. Ensure .env exists with correct DATABASE_URL, PORT, and BASE_URL
   const envPath = path.join(ROOT, ".env");
+  const envExamplePath = path.join(ROOT, ".env.example");
+  const dbUrlLine = `DATABASE_URL="mysql://root:rootpassword@localhost:${MYSQL_PORT}/wa_akg"`;
+  const portLine = `PORT=${APP_PORT}`;
+  const baseUrlLine = `BASE_URL="http://localhost:${APP_PORT}"`;
+
   if (!existsSync(envPath)) {
-    log("[3.5/5] Creating .env from .env.example...", "yellow");
-    const envExamplePath = path.join(ROOT, ".env.example");
+    log("[3.5/5] Creating .env...", "yellow");
     if (existsSync(envExamplePath)) {
       const exampleContent = readFileSync(envExamplePath, "utf-8");
       const filteredLines = exampleContent
         .split("\n")
-        .filter((l) => !/^\s*DATABASE_URL\s*=/.test(l))
+        .filter((l) => !/^\s*(DATABASE_URL|PORT|BASE_URL)\s*=/.test(l))
         .join("\n");
-      const envContent = `# Auto-generated by start.mjs — DO NOT EDIT DIRECTLY
-DATABASE_URL="mysql://root:rootpassword@localhost:3306/wa_akg"
-
-# === From .env.example ===
-${filteredLines}`;
-      writeFileSync(envPath, envContent, "utf-8");
-      log("  .env created with MySQL connection string.", "green");
-    } else {
-      log("  .env.example not found. Creating minimal .env...", "yellow");
       writeFileSync(
         envPath,
-        'DATABASE_URL="mysql://root:rootpassword@localhost:3306/wa_akg"\n',
+        `# Auto-generated by start.mjs — DO NOT EDIT DIRECTLY\n${dbUrlLine}\n${portLine}\n${baseUrlLine}\n\n# === From .env.example ===\n${filteredLines}`,
         "utf-8"
       );
+    } else {
+      writeFileSync(envPath, `${dbUrlLine}\n${portLine}\n${baseUrlLine}\n`, "utf-8");
     }
+    log("  .env created.", "green");
   } else {
-    log("[3.5/5] .env already exists.", "green");
+    // .env exists — ensure values match script configuration
+    let updated = readFileSync(envPath, "utf-8");
+    let changed = false;
+
+    // Sync DATABASE_URL
+    const dbMatch = updated.match(/^DATABASE_URL="mysql:.*"/m);
+    if (dbMatch && dbMatch[0] !== dbUrlLine) {
+      updated = updated.replace(/^DATABASE_URL="mysql:.*"/m, dbUrlLine);
+      changed = true;
+    } else if (!dbMatch) {
+      updated = `${dbUrlLine}\n${updated}`;
+      changed = true;
+    }
+
+    // Sync PORT
+    const portMatch = updated.match(/^PORT\s*=\s*"?(\d+)"?/m);
+    if (portMatch && portMatch[0] !== `PORT=${APP_PORT}` && portMatch[0] !== `PORT="${APP_PORT}"`) {
+      updated = updated.replace(/^PORT\s*=\s*"?\d+"?/m, portLine);
+      changed = true;
+    } else if (!portMatch) {
+      updated = `${portLine}\n${updated}`;
+      changed = true;
+    }
+
+    // Sync BASE_URL
+    const baseMatch = updated.match(/^BASE_URL\s*=\s*"http:\/\/localhost:\d+"/m);
+    if (baseMatch && baseMatch[0] !== baseUrlLine) {
+      updated = updated.replace(/^BASE_URL\s*=\s*"http:\/\/localhost:\d+"/m, baseUrlLine);
+      changed = true;
+    } else if (!baseMatch) {
+      updated = `${baseUrlLine}\n${updated}`;
+      changed = true;
+    }
+
+    if (changed) {
+      writeFileSync(envPath, updated, "utf-8");
+      log(`  .env updated: DATABASE_URL port=${MYSQL_PORT}, PORT=${APP_PORT}, BASE_URL=${APP_PORT}.`, "yellow");
+    } else {
+      log("[3.5/5] .env is correct.", "green");
+    }
   }
   console.log("");
 
@@ -240,9 +385,12 @@ ${filteredLines}`;
       log("  No users found. Creating default admin account...", "yellow");
       run(`npx tsx scripts/setup-admin.js "admin@admin.com" "admin123"`);
       log(`  Default admin: admin@admin.com / admin123`, "green");
+    } else {
+      log(`  ${userCount} user(s) found, skipping admin creation.`, "green");
     }
-  } catch {
-    // Ignore check errors
+  } catch (e) {
+    log(`  Admin check failed (database may still be starting up): ${e.message}`, "yellow");
+    log("  Run manually: node scripts/setup-admin.js <email> <password>", "yellow");
   }
 
   log("  Done.", "green");
@@ -251,9 +399,9 @@ ${filteredLines}`;
   // 5. Start dev server
   log("[5/5] Starting development server...", "yellow");
   console.log("");
-  log("  App:     http://localhost:3000", "cyan");
-  log("  Swagger: http://localhost:3000/swagger", "cyan");
-  log("  MySQL:   localhost:3306 / root / rootpassword / wa_akg", "cyan");
+  log(`  App:     http://localhost:${APP_PORT}`, "cyan");
+  log(`  Swagger: http://localhost:${APP_PORT}/swagger`, "cyan");
+  log(`  MySQL:   localhost:${MYSQL_PORT} / root / rootpassword / wa_akg`, "cyan");
   console.log("");
   log("  Press Ctrl+C to stop.", "green");
   console.log("");
@@ -269,7 +417,7 @@ ${filteredLines}`;
     log("Stopping MySQL container...", "yellow");
     try {
       execSync(`docker stop ${MYSQL_CONTAINER}`, { stdio: "ignore" });
-    } catch {}
+    } catch { }
     log("Done.", "green");
   };
 
@@ -285,7 +433,7 @@ ${filteredLines}`;
     process.exit(0);
   });
 
-  await new Promise(() => {}); // keep alive
+  await new Promise(() => { }); // keep alive
 }
 
 main().catch((e) => {
