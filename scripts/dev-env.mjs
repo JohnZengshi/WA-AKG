@@ -237,6 +237,12 @@ export async function setupEnv() {
     let updated = readFileSync(envPath, "utf-8");
     let changed = false;
 
+    // Remove any old MySQL DATABASE_URL line first (migration compat)
+    if (/^DATABASE_URL="mysql:.*"/m.test(updated)) {
+      updated = updated.replace(/^DATABASE_URL="mysql:.*"?\n?/m, '');
+      changed = true;
+    }
+
     const dbMatch = updated.match(/^DATABASE_URL="postgresql:.*"/m);
     if (dbMatch && dbMatch[0] !== dbUrlLine) {
       updated = updated.replace(/^DATABASE_URL="postgresql:.*"/m, dbUrlLine);
