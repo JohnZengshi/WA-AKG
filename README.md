@@ -125,31 +125,202 @@ npm run db:push
 npm run make-admin admin@example.com password123
 ```
 
-### 3. Run
-```bash
-# Development
-npm run dev
+---
 
-# Production
-npm run build && npm start
+## 🚀 Detailed Startup Guide
+
+### 🔹 Development Environment
+
+#### Option A: One-Click Startup (Recommended for Dev)
+
+The project includes a cross-platform startup script that handles everything automatically — MySQL container, dependencies, schema, and admin account:
+
+```bash
+node start.mjs
 ```
 
-### 🐋 Docker Deployment (Zero Configuration)
+The script will:
+1. Check prerequisites (Node.js, Docker)
+2. Start a MySQL 8.0 container (`wa-akg-db-dev`) on port `3307`
+3. Auto-start Colima if installed (macOS)
+4. Install dependencies (`npm install --legacy-peer-deps`)
+5. Auto-configure `.env` with correct `DATABASE_URL`, `PORT` (default `3001`), and `BASE_URL`
+6. Push Prisma schema and auto-create default admin if database is empty
+7. Clear stale `.next` cache and start the dev server
 
-You can deploy the application and its MySQL database together using Docker Compose with zero initial configuration:
+```
+Access:
+  App:     http://localhost:3001
+  Swagger: http://localhost:3001/docs
+  MySQL:   localhost:3307 / root / rootpassword / wa_akg
+```
 
-1. **Start Services**:
-   Navigate to the `web` directory and run:
-   ```bash
-   cd web
-   docker compose up -d
-   ```
-   This automatically builds the Next.js application, pulls MySQL 8.0, creates database tables, and provisions the default SuperAdmin user:
-   - **Email**: `admin@example.com`
-   - **Password**: `admin123`
+> [!NOTE]
+> The startup script uses **port 3307** for MySQL and **port 3001** for the app by default to avoid conflicts with existing services. Press `Ctrl+C` to stop both the app and MySQL container.
 
-2. **Customization (Optional)**:
-   To customize settings, edit the environment variables directly in `web/docker-compose.yml` (e.g. `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `AUTH_SECRET`, `TZ`, etc.), or copy `.env.example` to `.env` in the `web` folder.
+#### Option B: Manual Development Startup
+
+```bash
+# 1. Clone and install
+git clone https://github.com/mrifqidaffaaditya/WA-AKG.git
+cd WA-AKG
+npm install
+
+# 2. Configure environment
+cp .env.example .env
+# Edit .env — at minimum set:
+#   DATABASE_URL (PostgreSQL or MySQL)
+#   AUTH_SECRET (generate with: openssl rand -base64 32)
+#   BASE_URL (e.g. http://localhost:3000)
+
+# 3. Start your own MySQL/PostgreSQL, then push schema
+npm run db:push
+
+# 4. Create admin user
+npm run make-admin admin@example.com password123
+
+# 5. Start development server
+npm run dev
+
+# App will be available at http://localhost:3000
+```
+
+### 🔹 Production Environment
+
+```bash
+# Build Next.js frontend
+npm run build
+
+# Start production server
+NODE_ENV=production npm start
+# or: npm start (the script sets NODE_ENV automatically)
+
+# Default port: 3000
+# Override with: PORT=8080 npm start
+```
+
+> [!IMPORTANT]
+> The production server runs via `npx tsx src/server/index.ts` (not `next start`), because WA-AKG requires a **custom HTTP server** for Socket.IO, WebSocket (Baileys), and WhatsApp session management.
+
+### 🐋 Docker Production Deployment
+
+The project includes a complete Docker Compose setup for production deployment with MySQL:
+
+```bash
+# Start all services (app + MySQL 8.0)
+docker compose up -d
+
+# View logs
+docker compose logs -f
+
+# Stop services
+docker compose down
+```
+
+**What happens automatically:**
+- Next.js is built inside the Docker image (multi-stage build)
+- MySQL 8.0 is pulled and initialized
+- Prisma schema is pushed on container start
+- Default SuperAdmin is auto-created from environment variables:
+  - **Email**: `admin@admin.com`
+  - **Password**: `admin123`
+- WhatsApp session data is persisted in `./data/app`
+- Media uploads are persisted in `./data/uploads`
+
+**Customization** (edit `docker-compose.yml`):
+
+| Variable | Description | Default |
+|---|---|---|
+| `ADMIN_EMAIL` | Auto-created admin email | `admin@admin.com` |
+| `ADMIN_PASSWORD` | Auto-created admin password | `admin123` |
+| `AUTH_SECRET` | NextAuth secret (change for production!) | auto-generated |
+| `BASE_URL` | Public-facing URL | `http://localhost:3000` |
+| `NEXT_PUBLIC_SWAGGER_USERNAME` | Swagger UI login | `admin` |
+| `NEXT_PUBLIC_SWAGGER_PASSWORD` | Swagger UI password | `admin123` |
+| `TZ` | Timezone | `Asia/Jakarta` |
+
+---
+
+## 🔧 Common Errors & Troubleshooting
+
+### Startup Failures
+
+| Error | Cause | Fix |
+|---|---|---|
+| `Port 3306 already in use` | Local MySQL or another service running | Use `start.mjs` (uses port 3307), or stop existing MySQL, or change `DATABASE_URL` port |
+| `Can't connect to MySQL server` | MySQL not started or wrong credentials | Run `docker compose up -d db` or check `DATABASE_URL` in `.env` |
+| `MySQL connection refused` | Container still initializing | Wait 10-15s; run `docker logs wa-akg-db-dev` to check |
+| `prisma db push failed` | Wrong DATABASE_URL or MySQL not ready | Verify MySQL is running: `mysql -h 127.0.0.1 -P 3307 -u root -prootpassword -e "SELECT 1"` |
+| `Module not found: xxx` | Missing dependencies | Run `npm install --legacy-peer-deps` |
+
+### Docker Issues
+
+| Error | Cause | Fix |
+|---|---|---|
+| `Cannot connect to the Docker daemon` | Docker Desktop not running | Start Docker Desktop (or `colima start` on macOS) |
+| `Unable to lock ... ibdata1` | macOS Spotlight/Cloud syncing locks MySQL data dir | Run `start.mjs` — it auto-detects and retries; or manually: `docker rm -f wa-akg-db-dev && rm -rf data/mysql-dev && docker run ...` |
+| `Image pull failed` | Docker registry unreachable (China firewall) | Configure mirror: Docker Desktop → Settings → Docker Engine → add `"registry-mirrors": ["https://docker.m.daocloud.io"]` |
+| `EPERM: operation not permitted` on `.dll.node` | Windows Defender / antivirus scanning | Run `npm run build` again; the existing engine binary is still valid |
+| `docker compose up -d` fails to build | No `web/` directory (README outdated) | Run from **project root**, not `web/`: `docker compose up -d` |
+
+### Runtime Errors
+
+| Error | Cause | Fix |
+|---|---|---|
+| `AUTH_SECRET is not set` | Missing NextAuth secret in `.env` | Set `AUTH_SECRET` (run `openssl rand -base64 32`) |
+| `NEXTAUTH_URL is not set` | Missing callback URL | Set `NEXTAUTH_URL` in `.env` (e.g. `http://localhost:3000`) |
+| `Socket.IO connection failed` | Wrong Socket.IO path | Default: `/api/socket/io` — ensure client matches server config |
+| `WhatsApp session not connecting` | QR code expired or network issue | Re-scan QR from dashboard; check Baileys logs (`BAILEYS_LOG_LEVEL=debug`) |
+| `413 Payload Too Large` | Upload exceeds `MAX_UPLOAD_SIZE_MB` | Increase in `.env` or configure reverse proxy limits |
+| `500 internal server error` | Server-side exception | Check terminal logs for stack trace; enable `BAILEYS_LOG_LEVEL=debug` for more detail |
+| `Cloudflare 520` errors | Idle connection timeout | Already fixed in code: `keepAliveTimeout = 120s` |
+
+### Database Reset
+
+```bash
+# Reset development database (data will be lost)
+docker rm -f wa-akg-db-dev
+rm -rf data/mysql-dev
+node start.mjs   # recreates everything
+
+# Reset production database
+docker compose down -v
+docker compose up -d
+```
+
+---
+
+## ⚙️ Environment Configuration
+
+### Environment: Development vs Production
+
+| Setting | Development | Production |
+|---|---|---|
+| `NODE_ENV` | `development` | `production` |
+| `npm run dev` / `node start.mjs` | Hot-reload via `tsx` | ❌ Not used |
+| `npm run build && npm start` | ❌ Not needed | ✅ Production server |
+| Hot Module Replacement | ✅ Yes (Turbopack) | ❌ No |
+| `.next/` cache | Cleared on `start.mjs` startup | Built once via `next build` |
+| Error stack traces | Full detail in terminal | Minimal |
+| Baileys logs | Set `BAILEYS_LOG_LEVEL=debug` | Set `BAILEYS_LOG_LEVEL=error` |
+| Swagger UI | Always enabled | Set `NEXT_PUBLIC_SWAGGER_ENABLED=true` |
+| Auto admin creation | Via `start.mjs` or `npm run make-admin` | Via Docker env vars `ADMIN_EMAIL`/`ADMIN_PASSWORD` |
+
+### Port Overview
+
+| Service | Default Port | Configurable Via |
+|---|---|---|
+| App (Dev - `start.mjs`) | `3001` | `PORT` in `.env` |
+| App (Manual Dev/Prod) | `3000` | `PORT` in `.env` |
+| MySQL (Dev - `start.mjs`) | `3307` | `DATABASE_URL` in `.env` |
+| MySQL (Docker Compose) | `3306` | `docker-compose.yml` ports mapping |
+
+### Performance Tuning
+
+- **Upload Size**: Set `MAX_UPLOAD_SIZE_MB` (default: 50 MB)
+- **Rate Limiting**: Enabled by default (`ENABLE_RATE_LIMITING=true`, limit: `RATE_LIMIT_PER_MINUTE=60`)
+- **Session Timeout**: Configure `SESSION_TIMEOUT_HOURS` (default: 24h)
+- **Broadcast Delays**: Built-in 10-30s randomized delays to prevent bans
 
 ---
 
