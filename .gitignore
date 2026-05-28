@@ -49,6 +49,8 @@ next-env.d.ts
 !/data/.gitkeep
 !/data/media/.gitkeep
 !/data/mysql/.gitkeep
+!/data/pg/.gitkeep
+!/data/pg-dev/.gitkeep
 !/data/app/.gitkeep
 !/data/uploads/.gitkeep
 /public/media/*
