@@ -2,7 +2,7 @@
 // ==============================================
 // WA-AKG Environment Setup (run once per dev session)
 // ==============================================
-// Starts MySQL, installs deps, configures .env,
+// Starts PostgreSQL, installs deps, configures .env,
 // pushes Prisma schema, creates default admin.
 //
 // Usage:   node scripts/dev-env.mjs
@@ -11,16 +11,16 @@
 import { execSync } from "child_process";
 import { existsSync, readFileSync, writeFileSync, rmSync, readdirSync } from "fs";
 import path from "path";
-import { log, run, isPortOpen, isMySQLPort, parseEnvPorts, ROOT } from "./dev-common.mjs";
+import { log, run, isPortOpen, isPostgresPort, parseEnvPorts, ROOT } from "./dev-common.mjs";
 
-const MYSQL_CONTAINER = "wa-akg-db-dev";
-const MYSQL_DATA_DIR = path.join(ROOT, "data", "mysql-dev");
+const DB_CONTAINER = "wa-akg-db-dev";
+const DB_DATA_DIR = path.join(ROOT, "data", "pg-dev");
 
-async function waitForDocker(password) {
+async function waitForDocker() {
   for (let i = 0; i < 30; i++) {
     try {
       execSync(
-        `docker exec ${MYSQL_CONTAINER} mysqladmin ping -uroot -p${password} --silent`,
+        `docker exec ${DB_CONTAINER} pg_isready -U postgres`,
         { stdio: "ignore" }
       );
       return true;
@@ -55,7 +55,7 @@ function containerExists(container) {
 }
 
 export async function setupEnv() {
-  const { MYSQL_PORT, APP_PORT } = parseEnvPorts();
+  const { DB_PORT, APP_PORT } = parseEnvPorts();
 
   console.log("");
   log("========================================", "cyan");
@@ -100,64 +100,64 @@ export async function setupEnv() {
   console.log("");
 
   // --------------------------------------------------
-  // 2. Start MySQL
+  // 2. Start PostgreSQL
   // --------------------------------------------------
-  log("[2/5] Starting MySQL via Docker...", "yellow");
+  log("[2/5] Starting PostgreSQL via Docker...", "yellow");
 
-  const port3306 = await isPortOpen(MYSQL_PORT);
-  let mysqlOn3306 = false;
-  if (port3306) {
-    mysqlOn3306 = await isMySQLPort(MYSQL_PORT);
-    if (mysqlOn3306) {
-      log(`  MySQL is already running on port ${MYSQL_PORT}.`, "green");
+  const port5432 = await isPortOpen(DB_PORT);
+  let pgOnPort = false;
+  if (port5432) {
+    pgOnPort = await isPostgresPort(DB_PORT);
+    if (pgOnPort) {
+      log(`  PostgreSQL is already running on port ${DB_PORT}.`, "green");
     } else {
-      log(`  Port ${MYSQL_PORT} is in use by a non-MySQL service. Will start our own MySQL container.`, "yellow");
+      log(`  Port ${DB_PORT} is in use by a non-PostgreSQL service. Will start our own PostgreSQL container.`, "yellow");
     }
   }
 
-  if (mysqlOn3306) {
-    // Real MySQL is running externally — skip container creation entirely
-  } else if (isDockerRunning(MYSQL_CONTAINER)) {
-    log("  MySQL container already running.", "green");
-  } else if (containerExists(MYSQL_CONTAINER)) {
-    log("  Starting existing MySQL container...");
-    execSync(`docker start ${MYSQL_CONTAINER}`, { stdio: "ignore" });
-    log("  Waiting for MySQL to be ready...");
-    const ready = await waitForDocker("rootpassword");
+  if (pgOnPort) {
+    // Real PostgreSQL is running externally — skip container creation entirely
+  } else if (isDockerRunning(DB_CONTAINER)) {
+    log("  PostgreSQL container already running.", "green");
+  } else if (containerExists(DB_CONTAINER)) {
+    log("  Starting existing PostgreSQL container...");
+    execSync(`docker start ${DB_CONTAINER}`, { stdio: "ignore" });
+    log("  Waiting for PostgreSQL to be ready...");
+    const ready = await waitForDocker();
     if (!ready) {
       log("  Container failed to start (data may be corrupted). Recreating...", "yellow");
-      execSync(`docker rm -f ${MYSQL_CONTAINER}`, { stdio: "ignore" });
+      execSync(`docker rm -f ${DB_CONTAINER}`, { stdio: "ignore" });
       // Fall through to create new container below
     } else {
-      log("  MySQL is ready.", "green");
+      log("  PostgreSQL is ready.", "green");
     }
   }
 
-  // Create MySQL container (if it doesn't exist or was removed above)
-  if (!isDockerRunning(MYSQL_CONTAINER) && !mysqlOn3306) {
-    try { execSync(`docker rm -f ${MYSQL_CONTAINER}`, { stdio: "ignore" }); } catch { }
+  // Create PostgreSQL container (if it doesn't exist or was removed above)
+  if (!isDockerRunning(DB_CONTAINER) && !pgOnPort) {
+    try { execSync(`docker rm -f ${DB_CONTAINER}`, { stdio: "ignore" }); } catch { }
 
     // Check if image exists locally, pull if needed
     let imageExists = '';
     try {
-      imageExists = execSync(`docker images -q mysql:8.0`, { encoding: "utf-8", stdio: ["pipe", "pipe", "ignore"] }).trim();
+      imageExists = execSync(`docker images -q postgres:16`, { encoding: "utf-8", stdio: ["pipe", "pipe", "ignore"] }).trim();
     } catch {
       imageExists = '';
     }
     if (!imageExists) {
       const registries = [
-        "docker.io/library/mysql:8.0",
-        "docker.m.daocloud.io/library/mysql:8.0",
-        "mirror.ccs.tencentyun.com/library/mysql:8.0",
-        "hub-mirror.c.163.com/library/mysql:8.0",
+        "docker.io/library/postgres:16",
+        "docker.m.daocloud.io/library/postgres:16",
+        "mirror.ccs.tencentyun.com/library/postgres:16",
+        "hub-mirror.c.163.com/library/postgres:16",
       ];
 
       let pulled = false;
       for (const registry of registries) {
-        log(`  Pulling mysql:8.0 from ${registry.split("/")[0]}...`);
+        log(`  Pulling postgres:16 from ${registry.split("/")[0]}...`);
         try {
           execSync(`docker pull ${registry}`, { stdio: "inherit", timeout: 300000 });
-          execSync(`docker tag ${registry} mysql:8.0`, { stdio: "ignore" });
+          execSync(`docker tag ${registry} postgres:16`, { stdio: "ignore" });
           execSync(`docker rmi ${registry}`, { stdio: "ignore" });
           pulled = true;
           break;
@@ -168,54 +168,34 @@ export async function setupEnv() {
       }
 
       if (!pulled) {
-        log("  Failed to pull mysql:8.0 from all mirrors.", "red");
+        log("  Failed to pull postgres:16 from all mirrors.", "red");
         log("  Try these steps manually:", "yellow");
         log("    1. Configure proxy: Docker Desktop → Settings → Resources → Proxies");
         log("    2. Or configure mirrors: Docker Desktop → Settings → Docker Engine → add registry-mirrors");
-        log("    3. Or run: docker pull mysql:8");
+        log("    3. Or run: docker pull postgres:16");
         process.exit(1);
       }
     }
 
     run(
       `docker run -d ` +
-      `--name ${MYSQL_CONTAINER} ` +
-      `-e MYSQL_ROOT_PASSWORD=rootpassword ` +
-      `-e MYSQL_DATABASE=wa_akg ` +
-      `-v "${MYSQL_DATA_DIR}:/var/lib/mysql" ` +
-      `-p ${MYSQL_PORT}:3306 ` +
-      `mysql:8.0`
+      `--name ${DB_CONTAINER} ` +
+      `-e POSTGRES_PASSWORD=postgres ` +
+      `-e POSTGRES_DB=wa_akg ` +
+      `-e POSTGRES_USER=postgres ` +
+      `-v "${DB_DATA_DIR}:/var/lib/postgresql/data" ` +
+      `-p ${DB_PORT}:5432 ` +
+      `postgres:16`
     );
 
-    log("  Waiting for MySQL to be ready...");
-    const ready = await waitForDocker("rootpassword");
+    log("  Waiting for PostgreSQL to be ready...");
+    const ready = await waitForDocker();
     if (!ready) {
-      const logs = execSync(`docker logs ${MYSQL_CONTAINER} 2>&1`, { encoding: "utf-8", stdio: ["pipe", "pipe", "ignore"] });
-      if (logs.includes("Unable to lock") || logs.includes("ibdata1") || logs.includes("OS errno 11") || logs.includes("Error: 11")) {
-        log("  Data directory locked by another process (macOS Spotlight/Cloud). Clearing and retrying...", "yellow");
-        execSync(`docker rm -f ${MYSQL_CONTAINER}`, { stdio: "ignore" });
-        try { execSync(`rm -rf "${MYSQL_DATA_DIR}"`, { stdio: "ignore" }); } catch { }
-        run(
-          `docker run -d ` +
-          `--name ${MYSQL_CONTAINER} ` +
-          `-e MYSQL_ROOT_PASSWORD=rootpassword ` +
-          `-e MYSQL_DATABASE=wa_akg ` +
-          `-v "${MYSQL_DATA_DIR}:/var/lib/mysql" ` +
-          `-p ${MYSQL_PORT}:3306 ` +
-          `mysql:8.0`
-        );
-        log("  Waiting for MySQL to be ready (retry)...");
-        const retryReady = await waitForDocker("rootpassword");
-        if (!retryReady) {
-          log("  MySQL still failed to start after retry. Check 'docker logs " + MYSQL_CONTAINER + "'", "red");
-          process.exit(1);
-        }
-      } else {
-        log("  MySQL failed to start. Check 'docker logs " + MYSQL_CONTAINER + "'", "red");
-        process.exit(1);
-      }
+      const logs = execSync(`docker logs ${DB_CONTAINER} 2>&1`, { encoding: "utf-8", stdio: ["pipe", "pipe", "ignore"] });
+      log("  PostgreSQL failed to start. Check 'docker logs " + DB_CONTAINER + "'", "red");
+      process.exit(1);
     }
-    log("  MySQL is ready.", "green");
+    log("  PostgreSQL is ready.", "green");
   }
   console.log("");
 
@@ -232,7 +212,7 @@ export async function setupEnv() {
   // --------------------------------------------------
   const envPath = path.join(ROOT, ".env");
   const envExamplePath = path.join(ROOT, ".env.example");
-  const dbUrlLine = `DATABASE_URL="mysql://root:rootpassword@localhost:${MYSQL_PORT}/wa_akg"`;
+  const dbUrlLine = `DATABASE_URL="postgresql://postgres:postgres@localhost:${DB_PORT}/wa_akg?schema=public"`;
   const portLine = `PORT=${APP_PORT}`;
   const baseUrlLine = `BASE_URL="http://localhost:${APP_PORT}"`;
 
@@ -257,9 +237,9 @@ export async function setupEnv() {
     let updated = readFileSync(envPath, "utf-8");
     let changed = false;
 
-    const dbMatch = updated.match(/^DATABASE_URL="mysql:.*"/m);
+    const dbMatch = updated.match(/^DATABASE_URL="postgresql:.*"/m);
     if (dbMatch && dbMatch[0] !== dbUrlLine) {
-      updated = updated.replace(/^DATABASE_URL="mysql:.*"/m, dbUrlLine);
+      updated = updated.replace(/^DATABASE_URL="postgresql:.*"/m, dbUrlLine);
       changed = true;
     } else if (!dbMatch) {
       updated = `${dbUrlLine}\n${updated}`;
@@ -286,7 +266,7 @@ export async function setupEnv() {
 
     if (changed) {
       writeFileSync(envPath, updated, "utf-8");
-      log(`  .env updated: DATABASE_URL port=${MYSQL_PORT}, PORT=${APP_PORT}, BASE_URL=${APP_PORT}.`, "yellow");
+      log(`  .env updated: DATABASE_URL port=${DB_PORT}, PORT=${APP_PORT}, BASE_URL=${APP_PORT}.`, "yellow");
     } else {
       log("[3.5/5] .env is correct.", "green");
     }

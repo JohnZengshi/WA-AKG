@@ -2,12 +2,12 @@
 // ==============================================
 // WA-AKG Environment Teardown
 // ==============================================
-// Stops and removes the MySQL Docker container.
-// Data in data/mysql-dev/ is preserved by default.
+// Stops and removes the PostgreSQL Docker container.
+// Data in data/pg-dev/ is preserved by default.
 //
 // Usage:
 //   node scripts/dev-stop.mjs           # stop + remove container
-//   node scripts/dev-stop.mjs --rm-data # also delete MySQL data
+//   node scripts/dev-stop.mjs --rm-data # also delete PostgreSQL data
 // ==============================================
 
 import { execSync } from "child_process";
@@ -15,8 +15,8 @@ import { existsSync, rmSync } from "fs";
 import path from "path";
 import { log, ROOT } from "./dev-common.mjs";
 
-const MYSQL_CONTAINER = "wa-akg-db-dev";
-const MYSQL_DATA_DIR = path.join(ROOT, "data", "mysql-dev");
+const DB_CONTAINER = "wa-akg-db-dev";
+const DB_DATA_DIR = path.join(ROOT, "data", "pg-dev");
 
 function isDockerRunning(container) {
   try {
@@ -52,35 +52,35 @@ async function main() {
   log("========================================", "cyan");
   console.log("");
 
-  if (!containerExists(MYSQL_CONTAINER)) {
-    log(`  Container "${MYSQL_CONTAINER}" does not exist. Nothing to do.`, "green");
+  if (!containerExists(DB_CONTAINER)) {
+    log(`  Container "${DB_CONTAINER}" does not exist. Nothing to do.`, "green");
     console.log("");
     return;
   }
 
   // Stop container if running
-  if (isDockerRunning(MYSQL_CONTAINER)) {
-    log("  Stopping MySQL container...", "yellow");
-    execSync(`docker stop ${MYSQL_CONTAINER}`, { stdio: "ignore" });
+  if (isDockerRunning(DB_CONTAINER)) {
+    log("  Stopping PostgreSQL container...", "yellow");
+    execSync(`docker stop ${DB_CONTAINER}`, { stdio: "ignore" });
     log("  Container stopped.", "green");
   }
 
   // Remove container
-  log("  Removing MySQL container...", "yellow");
-  execSync(`docker rm ${MYSQL_CONTAINER}`, { stdio: "ignore" });
+  log("  Removing PostgreSQL container...", "yellow");
+  execSync(`docker rm ${DB_CONTAINER}`, { stdio: "ignore" });
   log("  Container removed.", "green");
 
   // Optional: delete data directory
   if (removeData) {
-    log("  Removing MySQL data directory...", "yellow");
-    if (existsSync(MYSQL_DATA_DIR)) {
-      rmSync(MYSQL_DATA_DIR, { recursive: true, force: true });
+    log("  Removing PostgreSQL data directory...", "yellow");
+    if (existsSync(DB_DATA_DIR)) {
+      rmSync(DB_DATA_DIR, { recursive: true, force: true });
       log("  Data directory removed.", "green");
     } else {
       log("  Data directory does not exist.", "yellow");
     }
   } else {
-    log(`  MySQL data preserved at: ${MYSQL_DATA_DIR}`, "green");
+    log(`  PostgreSQL data preserved at: ${DB_DATA_DIR}`, "green");
     log("  Use --rm-data to also delete data.", "yellow");
   }
 
