@@ -133,20 +133,51 @@ npm run make-admin admin@example.com password123
 
 #### Option A: One-Click Startup (Recommended for Dev)
 
-The project includes a cross-platform startup script that handles everything automatically — MySQL container, dependencies, schema, and admin account:
+The project includes cross-platform startup scripts. The process is split into **two phases** so you can restart the dev server without re-running environment setup.
+
+#### Phase 1 — Environment (run once per dev session)
+
+Sets up MySQL container, installs dependencies, configures `.env`, pushes Prisma schema, and creates admin:
+
+```bash
+npm run dev:env
+```
+
+#### Phase 2 — App (restart as many times as needed)
+
+Clears stale `.next` cache and starts the dev server:
+
+```bash
+npm run dev:app
+```
+
+#### Stop environment
+
+Stops and removes the MySQL container:
+
+```bash
+npm run dev:stop
+```
+
+#### One-Click Startup (Backward Compatible)
+
+The original `node start.mjs` runs both phases in sequence:
 
 ```bash
 node start.mjs
 ```
 
-The script will:
+**What the env phase does:**
 1. Check prerequisites (Node.js, Docker)
 2. Start a MySQL 8.0 container (`wa-akg-db-dev`) on port `3307`
 3. Auto-start Colima if installed (macOS)
 4. Install dependencies (`npm install --legacy-peer-deps`)
 5. Auto-configure `.env` with correct `DATABASE_URL`, `PORT` (default `3001`), and `BASE_URL`
 6. Push Prisma schema and auto-create default admin if database is empty
-7. Clear stale `.next` cache and start the dev server
+
+**What the app phase does:**
+1. Clear stale `.next` cache
+2. Start the dev server
 
 ```
 Access:
@@ -156,7 +187,7 @@ Access:
 ```
 
 > [!NOTE]
-> The startup script uses **port 3307** for MySQL and **port 3001** for the app by default to avoid conflicts with existing services. Press `Ctrl+C` to stop both the app and MySQL container.
+> The scripts use **port 3307** for MySQL and **port 3001** for the app by default to avoid conflicts with existing services. Press `Ctrl+C` to stop both the app and MySQL container.
 
 #### Option B: Manual Development Startup
 
@@ -247,7 +278,7 @@ docker compose down
 
 | Error | Cause | Fix |
 |---|---|---|
-| `Port 3306 already in use` | Local MySQL or another service running | Use `start.mjs` (uses port 3307), or stop existing MySQL, or change `DATABASE_URL` port |
+| `Port 3306 already in use` | Local MySQL or another service running | Use `npm run dev:env` (uses port 3307), or stop existing MySQL, or change `DATABASE_URL` port |
 | `Can't connect to MySQL server` | MySQL not started or wrong credentials | Run `docker compose up -d db` or check `DATABASE_URL` in `.env` |
 | `MySQL connection refused` | Container still initializing | Wait 10-15s; run `docker logs wa-akg-db-dev` to check |
 | `prisma db push failed` | Wrong DATABASE_URL or MySQL not ready | Verify MySQL is running: `mysql -h 127.0.0.1 -P 3307 -u root -prootpassword -e "SELECT 1"` |
@@ -258,7 +289,7 @@ docker compose down
 | Error | Cause | Fix |
 |---|---|---|
 | `Cannot connect to the Docker daemon` | Docker Desktop not running | Start Docker Desktop (or `colima start` on macOS) |
-| `Unable to lock ... ibdata1` | macOS Spotlight/Cloud syncing locks MySQL data dir | Run `start.mjs` — it auto-detects and retries; or manually: `docker rm -f wa-akg-db-dev && rm -rf data/mysql-dev && docker run ...` |
+| `Unable to lock ... ibdata1` | macOS Spotlight/Cloud syncing locks MySQL data dir | Run `npm run dev:env` — it auto-detects and retries; or manually: `docker rm -f wa-akg-db-dev && rm -rf data/mysql-dev && docker run ...` |
 | `Image pull failed` | Docker registry unreachable (China firewall) | Configure mirror: Docker Desktop → Settings → Docker Engine → add `"registry-mirrors": ["https://docker.m.daocloud.io"]` |
 | `EPERM: operation not permitted` on `.dll.node` | Windows Defender / antivirus scanning | Run `npm run build` again; the existing engine binary is still valid |
 | `docker compose up -d` fails to build | No `web/` directory (README outdated) | Run from **project root**, not `web/`: `docker compose up -d` |
@@ -281,7 +312,7 @@ docker compose down
 # Reset development database (data will be lost)
 docker rm -f wa-akg-db-dev
 rm -rf data/mysql-dev
-node start.mjs   # recreates everything
+npm run dev:env   # recreates everything
 
 # Reset production database
 docker compose down -v
@@ -297,22 +328,22 @@ docker compose up -d
 | Setting | Development | Production |
 |---|---|---|
 | `NODE_ENV` | `development` | `production` |
-| `npm run dev` / `node start.mjs` | Hot-reload via `tsx` | ❌ Not used |
+| `npm run dev:app` / `node start.mjs --app-only` | Hot-reload via `tsx` | ❌ Not used |
 | `npm run build && npm start` | ❌ Not needed | ✅ Production server |
 | Hot Module Replacement | ✅ Yes (Turbopack) | ❌ No |
-| `.next/` cache | Cleared on `start.mjs` startup | Built once via `next build` |
+| `.next/` cache | Cleared on `npm run dev:app` startup | Built once via `next build` |
 | Error stack traces | Full detail in terminal | Minimal |
 | Baileys logs | Set `BAILEYS_LOG_LEVEL=debug` | Set `BAILEYS_LOG_LEVEL=error` |
 | Swagger UI | Always enabled | Set `NEXT_PUBLIC_SWAGGER_ENABLED=true` |
-| Auto admin creation | Via `start.mjs` or `npm run make-admin` | Via Docker env vars `ADMIN_EMAIL`/`ADMIN_PASSWORD` |
+| Auto admin creation | Via `npm run dev:env` or `npm run make-admin` | Via Docker env vars `ADMIN_EMAIL`/`ADMIN_PASSWORD` |
 
 ### Port Overview
 
 | Service | Default Port | Configurable Via |
 |---|---|---|
-| App (Dev - `start.mjs`) | `3001` | `PORT` in `.env` |
+| App (Dev - `npm run dev:app`) | `3001` | `PORT` in `.env` |
 | App (Manual Dev/Prod) | `3000` | `PORT` in `.env` |
-| MySQL (Dev - `start.mjs`) | `3307` | `DATABASE_URL` in `.env` |
+| MySQL (Dev - `npm run dev:env`) | `3307` | `DATABASE_URL` in `.env` |
 | MySQL (Docker Compose) | `3306` | `docker-compose.yml` ports mapping |
 
 ### Performance Tuning
