@@ -3,6 +3,7 @@ import { WhatsAppInstance } from "./instance";
 import { Server } from "socket.io";
 import { initScheduler } from "@/lib/cron";
 import { logger } from "@/lib/logger";
+import { randomizeBrowser } from "@/lib/browser-fingerprint";
 
 export class WhatsAppManager {
     private static instance: WhatsAppManager;
@@ -52,12 +53,15 @@ export class WhatsAppManager {
         // Use custom ID if provided, otherwise generate random
         const sessionId = customSessionId || Math.random().toString(36).substring(7);
 
+        const browserFingerprint = randomizeBrowser();
+
         const session = await prisma.session.create({
             data: {
                 userId,
                 name,
                 sessionId,
                 status: "DISCONNECTED",
+                config: { browserFingerprint },
                 botConfig: {
                     create: {
                         enabled: true,

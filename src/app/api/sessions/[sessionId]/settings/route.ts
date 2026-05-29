@@ -37,7 +37,7 @@ export async function GET(
     }
 }
 
-// PATCH: Update session settings
+// PATCH: Update session settings (deep merge with existing config)
 export async function PATCH(
     request: NextRequest,
     { params }: { params: Promise<{ sessionId: string }> }
@@ -57,17 +57,32 @@ export async function PATCH(
         }
 
         const body = await request.json();
-        const { config } = body;
+        const { config: newConfig } = body;
+
+        // Deep merge: preserve existing config keys that are not being updated
+        const existing = await prisma.session.findUnique({
+            where: { sessionId },
+            select: { config: true }
+        });
+        const existingConfig = (existing?.config as Record<string, any>) || {};
+        const mergedConfig = { ...existingConfig, ...newConfig };
+
+        // Remove null keys from merged config (allows clearing values)
+        for (const key of Object.keys(mergedConfig)) {
+            if (mergedConfig[key] === null) {
+                delete mergedConfig[key];
+            }
+        }
 
         const updated = await prisma.session.update({
             where: { sessionId },
-            data: { config }
+            data: { config: mergedConfig }
         });
 
         // Update active instance if exists
         const instance = waManager.getInstance(sessionId);
         if (instance) {
-            // In a real app we might update internal instance state
+            instance.config = mergedConfig;
         }
 
         return NextResponse.json({ status: true, message: "Session settings updated successfully", data: updated });
@@ -76,6 +91,14 @@ export async function PATCH(
         console.error("Update session settings error:", e);
         return NextResponse.json({ status: false, message: "Failed to update settings", error: "Failed to update settings" }, { status: 500 });
     }
+}
+
+// POST: Alias for PATCH (backward compat with bot-settings privacy save)
+export async function POST(
+    request: NextRequest,
+    ctx: { params: Promise<{ sessionId: string }> }
+) {
+    return PATCH(request, ctx);
 }
 
 // DELETE: Delete a session
