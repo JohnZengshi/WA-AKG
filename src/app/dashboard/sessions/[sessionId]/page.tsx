@@ -4,9 +4,10 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { toast } from "sonner";
-import { ArrowLeft, Play, Square, RotateCcw, LogOut, Power, Trash2, QrCode, Activity, HardDrive, Wifi, MemoryStick, Copy, Check } from "lucide-react";
+import { ArrowLeft, Play, Square, RotateCcw, LogOut, Power, Trash2, QrCode, Activity, HardDrive, Wifi, MemoryStick, Copy, Check, Globe, Shield, RefreshCw, Save } from "lucide-react";
 import Link from "next/link";
 import { io, Socket } from "socket.io-client";
 import { QRCodeSVG } from "qrcode.react";
@@ -51,6 +52,21 @@ export default function SessionDetailPage() {
     const [pairingCode, setPairingCode] = useState<string | null>(null);
     const [isPairing, setIsPairing] = useState(false);
 
+    const [proxyUrl, setProxyUrl] = useState("");
+    const [browserFp, setBrowserFp] = useState<string>("");
+    const [connSaving, setConnSaving] = useState(false);
+
+    const fetchConnectionConfig = async () => {
+        try {
+            const res = await fetch(`/api/sessions/${sessionId}/settings`);
+            if (!res.ok) return;
+            const result = await res.json();
+            const config = result?.data?.config || {};
+            setProxyUrl(config.proxyUrl || "");
+            setBrowserFp(config.browserFingerprint?.join(", ") || "");
+        } catch { /* silent */ }
+    };
+
     const fetchSession = async () => {
         try {
             const res = await fetch(`/api/sessions/${sessionId}`);
@@ -91,6 +107,7 @@ export default function SessionDetailPage() {
 
     useEffect(() => {
         fetchSession();
+        fetchConnectionConfig();
 
         const socketInstance = io({
             path: "/api/socket/io",
@@ -110,7 +127,8 @@ export default function SessionDetailPage() {
 
             // Re-fetch full details on major status change (like connection) to get 'me' info
             if (data.status === 'CONNECTED') {
-                fetchSession();
+        fetchSession();
+        fetchConnectionConfig();
             }
         });
 
@@ -176,6 +194,51 @@ export default function SessionDetailPage() {
     const copyToClipboard = (text: string) => {
         navigator.clipboard.writeText(text);
         toast.success("Copied to clipboard");
+    };
+
+    const handleSaveConnection = async () => {
+        setConnSaving(true);
+        try {
+            const res = await fetch(`/api/sessions/${sessionId}/settings`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    config: {
+                        proxyUrl: proxyUrl || null,
+                    }
+                })
+            });
+            if (res.ok) {
+                toast.success("Connection settings saved");
+                fetchConnectionConfig();
+            } else {
+                toast.error("Failed to save connection settings");
+            }
+        } catch {
+            toast.error("Error saving connection settings");
+        } finally {
+            setConnSaving(false);
+        }
+    };
+
+    const handleRegenerateFingerprint = async () => {
+        try {
+            const res = await fetch(`/api/sessions/${sessionId}/settings`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    config: { browserFingerprint: null }
+                })
+            });
+            if (res.ok) {
+                toast.success("Fingerprint cleared. Reconnect to generate a new one.");
+                setBrowserFp("");
+            } else {
+                toast.error("Failed to clear fingerprint");
+            }
+        } catch {
+            toast.error("Error clearing fingerprint");
+        }
     };
 
     const deleteSession = async () => {
@@ -399,6 +462,65 @@ export default function SessionDetailPage() {
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Connection Security */}
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <Shield className="h-5 w-5" />
+                        Connection & Security
+                    </CardTitle>
+                    <CardDescription>Per-session proxy and browser fingerprint configuration to avoid risk detection.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                    <div className="grid gap-2">
+                        <Label htmlFor="proxy-url" className="flex items-center gap-2">
+                            <Globe className="h-4 w-4" />
+                            Proxy URL
+                        </Label>
+                        <Input
+                            id="proxy-url"
+                            placeholder="http://user:pass@host:port or socks5://host:port"
+                            value={proxyUrl}
+                            onChange={(e) => setProxyUrl(e.target.value)}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                            Leave empty to connect directly. Supports HTTP and SOCKS5 proxies. Changes take effect on next reconnect.
+                        </p>
+                    </div>
+
+                    <div className="grid gap-2 border-t pt-4">
+                        <Label className="flex items-center gap-2">
+                            <RefreshCw className="h-4 w-4" />
+                            Browser Fingerprint
+                        </Label>
+                        <div className="flex items-center gap-2">
+                            <Input
+                                readOnly
+                                value={browserFp || "Not generated yet (auto-generates on connect)"}
+                                className="font-mono text-sm bg-muted"
+                            />
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleRegenerateFingerprint}
+                                title="Clear fingerprint — a new one will be generated on next connect"
+                            >
+                                Reset
+                            </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                            This fingerprint identifies your session to WhatsApp. It is randomly generated once and persists across reconnects. Reset to regenerate on next connection.
+                        </p>
+                    </div>
+                </CardContent>
+                <CardFooter>
+                    <Button onClick={handleSaveConnection} disabled={connSaving}>
+                        {connSaving ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                        Save Connection Settings
+                    </Button>
+                </CardFooter>
+            </Card>
         </div>
     );
 }

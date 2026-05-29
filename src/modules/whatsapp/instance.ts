@@ -16,6 +16,8 @@ import { bindAutoReply } from "./store/autoreply";
 import { bindPpGuard } from "./store/ppguard";
 import { antispam } from "./antispam";
 import { logger } from "@/lib/logger";
+import { getOrCreateFingerprint, buildBrowserDescription, validateFingerprint } from "@/lib/browser-fingerprint";
+import { createProxyAgent } from "@/lib/proxy-agent";
 
 export class WhatsAppInstance {
     socket: WASocket | null = null;
@@ -77,9 +79,19 @@ export class WhatsAppInstance {
         });
         this.config = sessionData?.config || {};
         const botConfig = (sessionData as any)?.botConfig;
+        const sessionConfig = (sessionData?.config as Record<string, any>) || {};
 
         const { state, saveCreds } = await usePrismaAuthState(this.sessionId);
         const { version } = await fetchLatestBaileysVersion();
+
+        const proxyConfig = createProxyAgent({
+            proxyUrl: sessionConfig.proxyUrl || null,
+        });
+
+        let browserFingerprint = sessionConfig.browserFingerprint;
+        if (!validateFingerprint(browserFingerprint)) {
+            browserFingerprint = await getOrCreateFingerprint(this.sessionId);
+        }
 
         this.socket = makeWASocket({
             version,
@@ -89,7 +101,9 @@ export class WhatsAppInstance {
                 creds: state.creds,
                 keys: makeCacheableSignalKeyStore(state.keys, pino({ level: process.env.BAILEYS_LOG_LEVEL || "error" }) as any),
             },
-            browser: ["Ubuntu", "Chrome", "20.0.04"],
+            browser: buildBrowserDescription(browserFingerprint),
+            agent: proxyConfig.agent,
+            fetchAgent: proxyConfig.fetchAgent,
             markOnlineOnConnect: botConfig?.alwaysOnline ?? true,
             syncFullHistory: true, // Enable history sync to get contacts
         });
