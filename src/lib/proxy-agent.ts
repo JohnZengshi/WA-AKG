@@ -5,14 +5,15 @@ import { logger } from './logger'
 
 interface ProxyConfig {
     proxyUrl?: string | null
+    sessionId?: string
 }
 
-function buildAgent(proxyUrl: string): Agent {
+async function buildAgent(proxyUrl: string): Promise<Agent> {
     const parsed = new URL(proxyUrl)
 
     if (parsed.protocol === 'socks5:' || parsed.protocol === 'socks5h:') {
         try {
-            const SocksProxyAgent = require('socks-proxy-agent').SocksProxyAgent
+            const { SocksProxyAgent } = await import('socks-proxy-agent')
             return new SocksProxyAgent(proxyUrl) as unknown as Agent
         } catch {
             logger.warn('Proxy', 'socks-proxy-agent not installed, falling back to HTTPS proxy. Install with: npm install socks-proxy-agent')
@@ -23,10 +24,10 @@ function buildAgent(proxyUrl: string): Agent {
     return new HttpsProxyAgent(proxyUrl) as unknown as Agent
 }
 
-export function createProxyAgent(config?: ProxyConfig): {
+export async function createProxyAgent(config?: ProxyConfig): Promise<{
     agent?: Agent
     fetchAgent?: Agent
-} {
+}> {
     const proxyUrl =
         config?.proxyUrl ||
         process.env.HTTPS_PROXY ||
@@ -38,11 +39,12 @@ export function createProxyAgent(config?: ProxyConfig): {
     if (!proxyUrl) return {}
 
     try {
-        const agent = buildAgent(proxyUrl)
-        logger.success('Proxy', `Connected via ${new URL(proxyUrl).protocol}//${new URL(proxyUrl).hostname}`)
+        const agent = await buildAgent(proxyUrl)
+        const sessionInfo = config?.sessionId ? `[${config.sessionId}] ` : ''
+        logger.success('Proxy', `${sessionInfo}Connected via ${new URL(proxyUrl).protocol}//${new URL(proxyUrl).hostname}`)
         return { agent, fetchAgent: agent }
     } catch (e) {
-        logger.error('Proxy', 'Failed to create proxy agent:', e)
+        logger.error('Proxy', `Failed to create proxy agent for session ${config?.sessionId || 'unknown'}:`, e)
         return {}
     }
 }

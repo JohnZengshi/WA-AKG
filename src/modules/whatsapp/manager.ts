@@ -39,7 +39,7 @@ export class WhatsAppManager {
         logger.success("Manager", `Loaded ${sessions.length} sessions.`);
     }
 
-    async createSession(userId: string, name: string, customSessionId?: string) {
+    async createSession(userId: string, name: string, customSessionId?: string, proxyUrl?: string) {
         // Fallback to global IO if instance IO is missing (Next.js Context Issue)
         if (!this.io && (global as any).io) {
             this.io = (global as any).io;
@@ -61,7 +61,7 @@ export class WhatsAppManager {
                 name,
                 sessionId,
                 status: "DISCONNECTED",
-                config: { browserFingerprint },
+                config: { browserFingerprint, ...(proxyUrl && { proxyUrl }) },
                 botConfig: {
                     create: {
                         enabled: true,

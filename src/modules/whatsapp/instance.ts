@@ -84,8 +84,9 @@ export class WhatsAppInstance {
         const { state, saveCreds } = await usePrismaAuthState(this.sessionId);
         const { version } = await fetchLatestBaileysVersion();
 
-        const proxyConfig = createProxyAgent({
+        const proxyConfig = await createProxyAgent({
             proxyUrl: sessionConfig.proxyUrl || null,
+            sessionId: this.sessionId,
         });
 
         let browserFingerprint = sessionConfig.browserFingerprint;
