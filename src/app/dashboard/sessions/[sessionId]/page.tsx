@@ -221,26 +221,6 @@ export default function SessionDetailPage() {
         }
     };
 
-    const handleRegenerateFingerprint = async () => {
-        try {
-            const res = await fetch(`/api/sessions/${sessionId}/settings`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    config: { browserFingerprint: null }
-                })
-            });
-            if (res.ok) {
-                toast.success("Fingerprint cleared. Reconnect to generate a new one.");
-                setBrowserFp("");
-            } else {
-                toast.error("Failed to clear fingerprint");
-            }
-        } catch {
-            toast.error("Error clearing fingerprint");
-        }
-    };
-
     const deleteSession = async () => {
         try {
             const res = await fetch(`/api/sessions/${sessionId}/settings`, { method: 'DELETE' });
@@ -494,23 +474,13 @@ export default function SessionDetailPage() {
                             <RefreshCw className="h-4 w-4" />
                             Browser Fingerprint
                         </Label>
-                        <div className="flex items-center gap-2">
-                            <Input
-                                readOnly
-                                value={browserFp || "Not generated yet (auto-generates on connect)"}
-                                className="font-mono text-sm bg-muted"
-                            />
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={handleRegenerateFingerprint}
-                                title="Clear fingerprint — a new one will be generated on next connect"
-                            >
-                                Reset
-                            </Button>
-                        </div>
+                        <Input
+                            readOnly
+                            value={browserFp || "Not generated yet (auto-generates on connect)"}
+                            className="font-mono text-sm bg-muted"
+                        />
                         <p className="text-xs text-muted-foreground">
-                            This fingerprint identifies your session to WhatsApp. It is randomly generated once and persists across reconnects. Reset to regenerate on next connection.
+                            This fingerprint identifies your session to WhatsApp. It is randomly generated once and persists across reconnects.
                         </p>
                     </div>
                 </CardContent>

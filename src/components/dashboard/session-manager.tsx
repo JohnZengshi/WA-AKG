@@ -24,6 +24,7 @@ export function SessionManager({ user }: { user: any }) {
     const [sessions, setSessions] = useState<Session[]>([]);
     const [newSessionName, setNewSessionName] = useState("");
     const [newSessionId, setNewSessionId] = useState("");
+    const [newSessionProxy, setNewSessionProxy] = useState("");
     const [loading, setLoading] = useState(false);
     const [socket, setSocket] = useState<Socket | null>(null);
     const router = useRouter();
@@ -89,7 +90,8 @@ export function SessionManager({ user }: { user: any }) {
                 body: JSON.stringify({
                     userId: user.id,
                     name: newSessionName,
-                    sessionId: newSessionId || undefined // Optional, backend will generate if empty
+                    sessionId: newSessionId || undefined, // Optional, backend will generate if empty
+                    ...(newSessionProxy && { proxyUrl: newSessionProxy }),
                 })
             });
             const responseData = await res.json();
@@ -100,6 +102,7 @@ export function SessionManager({ user }: { user: any }) {
             setSessions([...sessions, session]);
             setNewSessionName("");
             setNewSessionId("");
+            setNewSessionProxy("");
             toast.success("Session created successfully");
 
             // Optionally redirect immediately or let user choose
@@ -129,7 +132,7 @@ export function SessionManager({ user }: { user: any }) {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                         <div className="space-y-2">
                             <Label htmlFor="session-name">Session Name</Label>
                             <Input
@@ -148,6 +151,15 @@ export function SessionManager({ user }: { user: any }) {
                                 placeholder="unique-id-123"
                             />
                             <p className="text-[10px] text-muted-foreground">Only letters, numbers, hyphens.</p>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="proxy-url">Proxy URL (optional)</Label>
+                            <Input
+                                id="proxy-url"
+                                value={newSessionProxy}
+                                onChange={e => setNewSessionProxy(e.target.value)}
+                                placeholder="socks5://proxy:1080"
+                            />
                         </div>
                         <Button onClick={createSession} disabled={loading}>
                             {loading ? 'Creating...' : 'Create Session'}
