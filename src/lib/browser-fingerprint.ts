@@ -70,12 +70,14 @@ export function validateFingerprint(fp: unknown): fp is BrowserFingerprint {
     return fp.every(v => typeof v === 'string')
 }
 
-export async function getOrCreateFingerprint(sessionId: string): Promise<BrowserFingerprint> {
+export async function getOrCreateFingerprint(sessionId: string, isStopped?: () => boolean): Promise<BrowserFingerprint> {
     try {
         const session = await prisma.session.findUnique({
             where: { sessionId },
             select: { config: true }
         })
+
+        if (isStopped?.()) return randomizeBrowser()
 
         const config = (session?.config as Record<string, any>) || {}
         if (config.browserFingerprint && validateFingerprint(config.browserFingerprint)) {
@@ -84,6 +86,9 @@ export async function getOrCreateFingerprint(sessionId: string): Promise<Browser
         }
 
         const fp = randomizeBrowser()
+        
+        if (isStopped?.()) return fp
+        
         await prisma.session.update({
             where: { sessionId },
             data: { config: { ...config, browserFingerprint: fp } }

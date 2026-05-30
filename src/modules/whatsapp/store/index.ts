@@ -8,19 +8,23 @@ import { resolveToPhoneJid, isLidJid, normalizeJid } from "@/lib/jid-utils";
 import { Server } from "socket.io";
 import { logger } from "@/lib/logger";
 
-export const bindSessionStore = (sock: WASocket, sessionId: string, io: Server | null) => {
+export const bindSessionStore = (sock: WASocket, sessionId: string, io: Server | null, isStopped?: () => boolean) => {
     // Set start time for uptime command
     setSessionStartTime(sessionId);
 
     // First, get the database Session ID (cuid)
     let dbSessionId: string | null = null;
 
-    // Initialize by fetching the session ID
     (async () => {
+        if (isStopped?.()) return;
+        
         const session = await prisma.session.findUnique({
             where: { sessionId },
             select: { id: true }
         });
+        
+        if (isStopped?.()) return;
+        
         if (session) {
             dbSessionId = session.id;
             logger.info("Store", `Message store initialized for session ${sessionId} (db: ${dbSessionId})`);

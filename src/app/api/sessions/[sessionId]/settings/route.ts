@@ -120,21 +120,7 @@ export async function DELETE(
             return NextResponse.json({ status: false, message: "Forbidden - Cannot delete this session", error: "Forbidden - Cannot delete this session" }, { status: 403 });
         }
 
-        // Disconnect WhatsApp session first
-        const instance = waManager.getInstance(sessionId);
-        if (instance?.socket) {
-            try {
-                await instance.socket.logout();
-            } catch (e) {
-                console.log("Session logout error (might be already disconnected):", e);
-            }
-        }
-        waManager.deleteSession(sessionId);
-
-        // Delete from database
-        await prisma.session.delete({
-            where: { sessionId }
-        });
+        await waManager.deleteSession(sessionId);
 
         return NextResponse.json({ status: true, message: "Session deleted successfully" });
 
