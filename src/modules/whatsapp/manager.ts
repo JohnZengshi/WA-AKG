@@ -4,6 +4,7 @@ import { Server } from "socket.io";
 import { initScheduler } from "@/lib/cron";
 import { logger } from "@/lib/logger";
 import { randomizeBrowser } from "@/lib/browser-fingerprint";
+import { antispam } from "./antispam";
 
 export class WhatsAppManager {
     private static instance: WhatsAppManager;
@@ -86,11 +87,21 @@ export class WhatsAppManager {
     async deleteSession(sessionId: string) {
         const instance = this.sessions.get(sessionId);
         if (instance) {
-            // Logout/Close socket
-            instance.socket?.end(undefined);
+            instance.isStopped = true;
+            try {
+                await instance.socket?.logout();
+            } catch {}
+            
+            await instance.destroy();
             this.sessions.delete(sessionId);
         }
-        await prisma.session.delete({ where: { sessionId } });
+        
+        antispam.clearSession(sessionId);
+        
+        await prisma.$transaction([
+            prisma.authState.deleteMany({ where: { sessionId } }),
+            prisma.session.deleteMany({ where: { sessionId } })
+        ]);
     }
 
     async stopSession(sessionId: string) {
