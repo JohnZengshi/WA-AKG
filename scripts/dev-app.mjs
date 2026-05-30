@@ -9,7 +9,7 @@
 // Usage:   node scripts/dev-app.mjs
 // ==============================================
 
-import { spawn } from "child_process";
+import { spawn, execSync } from "child_process";
 import { existsSync, rmSync } from "fs";
 import path from "path";
 import { log, parseEnvPorts, ROOT } from "./dev-common.mjs";
@@ -33,6 +33,20 @@ export async function startApp() {
     } catch (e) {
       log(`  Warning: could not clear .next cache: ${e.message}`, "yellow");
     }
+  }
+
+  // Kill any existing process using the app port
+  try {
+    const pid = execSync(`lsof -i :${APP_PORT} -t 2>/dev/null`, { encoding: "utf8" }).trim();
+    if (pid) {
+      log(`  Killing existing process on port ${APP_PORT} (PID: ${pid})...`, "yellow");
+      execSync(`kill ${pid} 2>/dev/null`);
+      // Wait a moment for the port to be released
+      execSync("sleep 1");
+      log("  Port freed.", "green");
+    }
+  } catch {
+    // No process using the port — that's fine
   }
 
   console.log("");
