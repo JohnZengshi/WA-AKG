@@ -2,11 +2,12 @@ import { prisma } from "@/lib/prisma";
 import { AuthenticationCreds, AuthenticationState, BufferJSON, initAuthCreds, SignalDataTypeMap } from "@whiskeysockets/baileys";
 import { logger } from "@/lib/logger";
 
-export const usePrismaAuthState = async (sessionId: string): Promise<{ state: AuthenticationState, saveCreds: () => Promise<void> }> => {
+export const usePrismaAuthState = async (sessionId: string, isStopped?: () => boolean): Promise<{ state: AuthenticationState, saveCreds: () => Promise<void> }> => {
     
-    // Helper to read JSON with Buffer handling
     const readData = async (type: string, id: string) => {
         try {
+            if (isStopped?.()) return null;
+            
             const key = `${type}-${id}`;
             const data = await prisma.authState.findUnique({
                 where: { sessionId_key: { sessionId, key } }
@@ -21,9 +22,10 @@ export const usePrismaAuthState = async (sessionId: string): Promise<{ state: Au
         }
     };
 
-    // Helper to write data
     const writeData = async (type: string, id: string, data: any) => {
         try {
+            if (isStopped?.()) return;
+            
             const key = `${type}-${id}`;
             const value = JSON.parse(JSON.stringify(data, BufferJSON.replacer));
             
@@ -39,6 +41,8 @@ export const usePrismaAuthState = async (sessionId: string): Promise<{ state: Au
 
     const removeData = async (type: string, id: string) => {
         try {
+            if (isStopped?.()) return;
+            
             const key = `${type}-${id}`;
              await prisma.authState.deleteMany({
                 where: { sessionId, key }

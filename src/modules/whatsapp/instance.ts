@@ -40,97 +40,140 @@ export class WhatsAppInstance {
     private readonly MAX_RECONNECT_DELAY = 30000; // 30s cap
     private readonly INITIAL_RECONNECT_DELAY = 2000; // 2s first retry
 
+    get isInitializing(): boolean {
+        return this.initLock;
+    }
+
     constructor(sessionId: string, userId: string, io: Server) {
         this.sessionId = sessionId;
         this.userId = userId;
         this.io = io;
     }
 
-    private cleanup() {
-        // Clear any pending reconnection
+    async destroy(): Promise<void> {
+        this.isStopped = true;
+
+        const waitForInitLock = async (): Promise<void> => {
+            if (!this.initLock) return;
+            await new Promise<void>(resolve => {
+                const check = () => {
+                    if (!this.initLock) {
+                        resolve();
+                    } else {
+                        setTimeout(check, 50);
+                    }
+                };
+                setTimeout(() => resolve(), 5000);
+                check();
+            });
+        };
+
+        await waitForInitLock();
+
         if (this.reconnectTimer) {
             clearTimeout(this.reconnectTimer);
             this.reconnectTimer = null;
         }
 
-        // End old socket properly
         if (this.socket) {
             try {
                 this.socket.ev.removeAllListeners("connection.update");
                 this.socket.ev.removeAllListeners("creds.update");
                 this.socket.end(undefined);
-                this.socket = null;
             } catch (e) {
-                // Ignore cleanup errors
+                logger.warn("Instance", `Cleanup error for ${this.sessionId}:`, e);
             }
+            this.socket = null;
         }
     }
 
     async init() {
-        if (this.initLock) return; // Prevent concurrent init calls
+        if (this.initLock) return;
         this.initLock = true;
 
-        // Clean up previous socket before creating a new one
-        this.cleanup();
+        try {
+            if (this.reconnectTimer) {
+                clearTimeout(this.reconnectTimer);
+                this.reconnectTimer = null;
+            }
 
-        const sessionData = await prisma.session.findUnique({
-            where: { sessionId: this.sessionId },
-            include: { botConfig: true }
-        });
-        this.config = sessionData?.config || {};
-        const botConfig = (sessionData as any)?.botConfig;
-        const sessionConfig = (sessionData?.config as Record<string, any>) || {};
+            if (this.socket) {
+                try {
+                    this.socket.ev.removeAllListeners("connection.update");
+                    this.socket.ev.removeAllListeners("creds.update");
+                    this.socket.end(undefined);
+                } catch (e) {}
+                this.socket = null;
+            }
 
-        const { state, saveCreds } = await usePrismaAuthState(this.sessionId);
-        const { version } = await fetchLatestBaileysVersion();
+            if (this.isStopped) return;
 
-        const proxyConfig = await createProxyAgent({
-            proxyUrl: sessionConfig.proxyUrl || null,
-            sessionId: this.sessionId,
-        });
+            const sessionData = await prisma.session.findUnique({
+                where: { sessionId: this.sessionId },
+                include: { botConfig: true }
+            });
+            
+            if (this.isStopped) return;
+            
+            this.config = sessionData?.config || {};
+            const botConfig = (sessionData as any)?.botConfig;
+            const sessionConfig = (sessionData?.config as Record<string, any>) || {};
 
-        let browserFingerprint = sessionConfig.browserFingerprint;
-        if (!validateFingerprint(browserFingerprint)) {
-            browserFingerprint = await getOrCreateFingerprint(this.sessionId);
+            const { state, saveCreds } = await usePrismaAuthState(this.sessionId, () => this.isStopped);
+            
+            if (this.isStopped) return;
+            
+            const { version } = await fetchLatestBaileysVersion();
+
+            const proxyConfig = await createProxyAgent({
+                proxyUrl: sessionConfig.proxyUrl || null,
+                sessionId: this.sessionId,
+            });
+
+            let browserFingerprint = sessionConfig.browserFingerprint;
+            if (!validateFingerprint(browserFingerprint)) {
+                browserFingerprint = await getOrCreateFingerprint(this.sessionId, () => this.isStopped);
+            }
+
+            if (this.isStopped) return;
+
+            this.socket = makeWASocket({
+                version,
+                logger: pino({ level: process.env.BAILEYS_LOG_LEVEL || "error" }) as any,
+                printQRInTerminal: false,
+                auth: {
+                    creds: state.creds,
+                    keys: makeCacheableSignalKeyStore(state.keys, pino({ level: process.env.BAILEYS_LOG_LEVEL || "error" }) as any),
+                },
+                browser: buildBrowserDescription(browserFingerprint),
+                agent: proxyConfig.agent,
+                fetchAgent: proxyConfig.fetchAgent,
+                markOnlineOnConnect: botConfig?.alwaysOnline ?? true,
+                syncFullHistory: true,
+            });
+
+            const originalSendMessage = this.socket.sendMessage.bind(this.socket);
+            const sessionId = this.sessionId;
+            this.socket.sendMessage = async function (jid: string, content: any, options?: any) {
+                await antispam.enqueue(sessionId, jid, content);
+                return originalSendMessage(jid, content, options);
+            } as any;
+
+            bindSessionStore(this.socket, this.sessionId, this.io, () => this.isStopped);
+            bindContactSync(this.socket, this.sessionId);
+
+            this.socket.ev.on("creds.update", async () => {
+                if (this.isStopped) return;
+                await saveCreds();
+            });
+
+            this.socket.ev.on("connection.update", async (update) => {
+                if (this.isStopped) return;
+                await this.handleConnectionUpdate(update);
+            });
+        } finally {
+            this.initLock = false;
         }
-
-        this.socket = makeWASocket({
-            version,
-            logger: pino({ level: process.env.BAILEYS_LOG_LEVEL || "error" }) as any,
-            printQRInTerminal: false,
-            auth: {
-                creds: state.creds,
-                keys: makeCacheableSignalKeyStore(state.keys, pino({ level: process.env.BAILEYS_LOG_LEVEL || "error" }) as any),
-            },
-            browser: buildBrowserDescription(browserFingerprint),
-            agent: proxyConfig.agent,
-            fetchAgent: proxyConfig.fetchAgent,
-            markOnlineOnConnect: botConfig?.alwaysOnline ?? true,
-            syncFullHistory: true, // Enable history sync to get contacts
-        });
-
-        // Apply Anti-Spam Wrapper to sendMessage
-        // This wraps the socket's sendMessage so ALL outgoing messages go through the queue
-        const originalSendMessage = this.socket.sendMessage.bind(this.socket);
-        const sessionId = this.sessionId;
-        this.socket.sendMessage = async function (jid: string, content: any, options?: any) {
-            await antispam.enqueue(sessionId, jid, content);
-            return originalSendMessage(jid, content, options);
-        } as any;
-
-        // Bind Store for DB Sync (handles incoming messages)
-        bindSessionStore(this.socket, this.sessionId, this.io);
-
-        // Bind Contact Sync (handles contacts.update and messaging-history.set events)
-        bindContactSync(this.socket, this.sessionId);
-
-        this.socket.ev.on("creds.update", saveCreds);
-
-        this.socket.ev.on("connection.update", async (update) => {
-            await this.handleConnectionUpdate(update);
-        });
-
-        this.initLock = false; // Allow future reconnections
     }
 
     async handleConnectionUpdate(update: Partial<ConnectionState>) {
