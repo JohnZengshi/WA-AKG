@@ -42,6 +42,7 @@ vi.mock('@/lib/api-auth', () => ({
     role: 'SUPERADMIN'
   }),
   canAccessSession: vi.fn().mockResolvedValue(true),
+  isSessionOwnedByMachine: vi.fn().mockResolvedValue(true),
 }));
 
 describe('Batch Delete Sessions', () => {
@@ -157,8 +158,8 @@ describe('Batch Delete Sessions', () => {
       expect(response.status).toBe(200);
       expect(data.data.deleted).toBe(0);
       expect(data.data.failed).toBe(1);
-      expect(data.data.errors[0]).toContain('Timeout');
-    }, 40000);
+      expect(data.data.errors[0]).toContain('timed out');
+    }, 35000);
   });
 
   describe('Edge Cases', () => {
