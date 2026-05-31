@@ -53,11 +53,22 @@ export class WhatsAppInstance {
     async destroy(): Promise<void> {
         this.isStopped = true;
 
-        const maxWait = 5000;
-        const start = Date.now();
-        while (this.initLock && Date.now() - start < maxWait) {
-            await new Promise(r => setTimeout(r, 50));
-        }
+        const waitForInitLock = async (): Promise<void> => {
+            if (!this.initLock) return;
+            await new Promise<void>(resolve => {
+                const check = () => {
+                    if (!this.initLock) {
+                        resolve();
+                    } else {
+                        setTimeout(check, 50);
+                    }
+                };
+                setTimeout(() => resolve(), 5000);
+                check();
+            });
+        };
+
+        await waitForInitLock();
 
         if (this.reconnectTimer) {
             clearTimeout(this.reconnectTimer);
@@ -68,7 +79,9 @@ export class WhatsAppInstance {
             try {
                 this.socket.ev.removeAllListeners();
                 this.socket.end(undefined);
-            } catch (e) {}
+            } catch (e) {
+                logger.warn("Instance", `Cleanup error for ${this.sessionId}:`, e);
+            }
             this.socket = null;
         }
     }

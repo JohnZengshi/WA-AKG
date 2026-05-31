@@ -90,7 +90,9 @@ export class WhatsAppManager {
             instance.isStopped = true;
             try {
                 await instance.socket?.logout();
-            } catch {}
+            } catch (e) {
+                logger.warn("Manager", `Logout warning for ${sessionId}:`, e);
+            }
             
             await instance.destroy();
             this.sessions.delete(sessionId);
@@ -100,7 +102,7 @@ export class WhatsAppManager {
         
         await prisma.$transaction([
             prisma.authState.deleteMany({ where: { sessionId } }),
-            prisma.session.deleteMany({ where: { sessionId } })
+            prisma.session.deleteMany({ where: { sessionId } }),
         ]);
     }
 

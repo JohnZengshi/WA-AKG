@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription }
 import { useRouter } from 'next/navigation';
 import { toast } from "sonner";
 import { Label } from '@/components/ui/label';
-import { Smartphone, Plus, Trash2, Settings, RefreshCw, Power, UserPlus, CheckSquare, Square, X } from 'lucide-react';
+import { Plus, Trash2, Settings, UserPlus, CheckSquare, Square, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
   AlertDialog,
@@ -36,8 +36,9 @@ export function SessionManager({ user }: { user: any }) {
     const [newSessionId, setNewSessionId] = useState("");
     const [newSessionProxy, setNewSessionProxy] = useState("");
     const [loading, setLoading] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
     const [socket, setSocket] = useState<Socket | null>(null);
-    const [selected, setSelected] = useState<Set<string>>(new Set());
+    const [selected, setSelected] = useState<string[]>([]);
     const [deleting, setDeleting] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const router = useRouter();
@@ -76,11 +77,21 @@ export function SessionManager({ user }: { user: any }) {
         };
     }, []);
 
-    const fetchSessions = () => {
-        fetch('/api/sessions').then(res => res.json()).then(responseData => {
+    const fetchSessions = async () => {
+        setRefreshing(true);
+        try {
+            const res = await fetch('/api/sessions');
+            const responseData = await res.json();
             const data = responseData?.data || [];
-            if (Array.isArray(data)) setSessions(data);
-        });
+            if (Array.isArray(data)) {
+                setSessions(data);
+                setSelected([]);
+            }
+        } catch {
+            toast.error("Failed to fetch sessions");
+        } finally {
+            setRefreshing(false);
+        }
     }
 
     const createSession = async () => {
@@ -89,7 +100,6 @@ export function SessionManager({ user }: { user: any }) {
             return;
         }
 
-        // If ID matches existing
         if (newSessionId && sessions.some(s => s.sessionId === newSessionId)) {
             toast.error("Session ID already exists");
             return;
@@ -103,7 +113,7 @@ export function SessionManager({ user }: { user: any }) {
                 body: JSON.stringify({
                     userId: user.id,
                     name: newSessionName,
-                    sessionId: newSessionId || undefined, // Optional, backend will generate if empty
+                    sessionId: newSessionId || undefined,
                     ...(newSessionProxy && { proxyUrl: newSessionProxy }),
                 })
             });
@@ -118,8 +128,6 @@ export function SessionManager({ user }: { user: any }) {
             setNewSessionProxy("");
             toast.success("Session created successfully");
 
-            // Optionally redirect immediately or let user choose
-            // router.push(`/dashboard/sessions/${session.sessionId}`);
         } catch (e: any) {
             console.error(e);
             toast.error(e.message || "Failed to create session");
@@ -134,36 +142,47 @@ export function SessionManager({ user }: { user: any }) {
 
     const toggleSelect = (sessionId: string) => {
         setSelected(prev => {
-            const next = new Set(prev);
-            if (next.has(sessionId)) next.delete(sessionId); else next.add(sessionId);
-            return next;
+            if (prev.includes(sessionId)) {
+                return prev.filter(id => id !== sessionId);
+            }
+            return [...prev, sessionId];
         });
+    };
+
+    const handleCardClick = (sessionId: string) => {
+        toggleSelect(sessionId);
+    };
+
+    const handleActionClick = (e: React.MouseEvent, action: () => void) => {
+        e.stopPropagation();
+        action();
     };
 
     const selectAll = () => {
-        setSelected(prev => {
-            if (prev.size === sessions.length) return new Set();
-            return new Set(sessions.map(s => s.sessionId));
-        });
+        if (selected.length === sessions.length) {
+            setSelected([]);
+        } else {
+            setSelected(sessions.map(s => s.sessionId));
+        }
     };
 
     const handleBatchDelete = async () => {
-        if (selected.size === 0) return;
+        if (selected.length === 0) return;
         setShowDeleteConfirm(false);
         setDeleting(true);
         try {
             const res = await fetch("/api/sessions/batch-delete", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ sessionIds: Array.from(selected) }),
+                body: JSON.stringify({ sessionIds: selected }),
             });
             if (!res.ok) throw new Error("Failed to delete");
             const responseData = await res.json();
             const data = responseData?.data;
             toast.success(`Deleted ${data?.deleted || 0} session(s)`);
             if (data?.failed > 0) toast.warning(`Failed to delete ${data.failed} session(s)`);
-            setSelected(new Set());
-            fetchSessions();
+            setSelected([]);
+            await fetchSessions();
         } catch {
             toast.error("Failed to delete sessions");
         } finally {
@@ -229,20 +248,26 @@ export function SessionManager({ user }: { user: any }) {
                     <h2 className="text-xl font-semibold text-slate-800">Active Sessions ({sessions.length})</h2>
                     {sessions.length > 0 && (
                         <Button variant="outline" size="sm" onClick={selectAll}>
-                            {selected.size === sessions.length ? 'Deselect All' : 'Select All'}
+                            {selected.length === sessions.length ? 'Deselect All' : 'Select All'}
                         </Button>
                     )}
                 </div>
 
-                {selected.size > 0 && (
+                {selected.length > 0 && (
                     <div className="flex items-center gap-3 p-2.5 bg-destructive/5 border border-destructive/20 rounded-lg mb-4">
-                        <span className="text-sm font-medium">{selected.size} selected</span>
+                        <span className="text-sm font-medium">{selected.length} selected</span>
                         <Button variant="destructive" size="sm" className="gap-1.5 h-8" onClick={() => setShowDeleteConfirm(true)} disabled={deleting}>
                             <Trash2 className="h-3.5 w-3.5" /> {deleting ? "Deleting..." : "Delete"}
                         </Button>
-                        <Button variant="ghost" size="sm" className="h-8" onClick={() => setSelected(new Set())}>
+                        <Button variant="ghost" size="sm" className="h-8" onClick={() => setSelected([])}>
                             <X className="h-3.5 w-3.5 mr-1" /> Clear
                         </Button>
+                    </div>
+                )}
+
+                {refreshing && sessions.length === 0 && (
+                    <div className="text-center py-10 text-muted-foreground bg-slate-50 rounded-lg border">
+                        Loading sessions...
                     </div>
                 )}
 
@@ -253,9 +278,9 @@ export function SessionManager({ user }: { user: any }) {
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {sessions.map(session => {
-                            const isSelected = selected.has(session.sessionId);
+                            const isSelected = selected.includes(session.sessionId);
                             return (
-                                <Card key={session.id} className={`hover:shadow-md transition-shadow cursor-pointer ${isSelected ? "ring-2 ring-primary border-primary" : ""}`} onClick={() => toggleSelect(session.sessionId)}>
+                                <Card key={session.id} className={`hover:shadow-md transition-shadow cursor-pointer ${isSelected ? "ring-2 ring-primary border-primary" : ""}`} onClick={() => handleCardClick(session.sessionId)}>
                                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                         <div className="flex items-center gap-2">
                                             {isSelected ? (
@@ -279,10 +304,10 @@ export function SessionManager({ user }: { user: any }) {
                                         </div>
                                     </CardContent>
                                     <CardFooter className="bg-slate-50/50 p-3 flex justify-end gap-2">
-                                        <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); router.push(`/dashboard/sessions/access?session=${session.sessionId}`); }}>
+                                        <Button variant="outline" size="sm" onClick={(e) => handleActionClick(e, () => router.push(`/dashboard/sessions/access?session=${session.sessionId}`))}>
                                             <UserPlus className="h-4 w-4 mr-1" /> Share
                                         </Button>
-                                        <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); handleManageSession(session.sessionId); }}>
+                                        <Button variant="outline" size="sm" onClick={(e) => handleActionClick(e, () => handleManageSession(session.sessionId))}>
                                             <Settings className="h-4 w-4 mr-1" /> Manage
                                         </Button>
                                     </CardFooter>
@@ -296,7 +321,7 @@ export function SessionManager({ user }: { user: any }) {
             <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Delete {selected.size} session(s)?</AlertDialogTitle>
+                        <AlertDialogTitle>Delete {selected.length} session(s)?</AlertDialogTitle>
                         <AlertDialogDescription>
                             This action cannot be undone. The selected sessions will be permanently deleted along with all their data.
                         </AlertDialogDescription>
