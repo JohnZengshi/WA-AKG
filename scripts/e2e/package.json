@@ -1,0 +1,11 @@
+{
+  "name": "wa-akg-e2e",
+  "private": true,
+  "scripts": {
+    "e2e:db:up": "docker compose -f docker-compose.e2e.yml up -d",
+    "e2e:db:down": "docker compose -f docker-compose.e2e.yml down -v",
+    "e2e:server": "DOT_ENV=.env.e2e tsx src/server/index.ts",
+    "e2e:test": "playwright test tests/e2e/ --reporter=list",
+    "e2e": "npm run e2e:db:up && sleep 5 && npm run e2e:test"
+  }
+}
