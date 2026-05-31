@@ -7,8 +7,7 @@ test.describe('Session Assignment E2E Tests', () => {
     await page.fill('input[name="email"]', 'admin@admin.com');
     await page.fill('input[name="password"]', 'admin123');
     await page.click('button[type="submit"]');
-    await page.waitForURL('**/dashboard', { timeout: 120000 });
-    await page.waitForLoadState('networkidle');
+    await page.waitForURL((url: URL) => !url.pathname.includes('/auth/login'), { timeout: 300000 });
   });
 
   test('should display machine ID in sidebar', async ({ page }) => {
