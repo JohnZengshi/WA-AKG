@@ -77,7 +77,8 @@ export class WhatsAppInstance {
 
         if (this.socket) {
             try {
-                this.socket.ev.removeAllListeners();
+                this.socket.ev.removeAllListeners("connection.update");
+                this.socket.ev.removeAllListeners("creds.update");
                 this.socket.end(undefined);
             } catch (e) {
                 logger.warn("Instance", `Cleanup error for ${this.sessionId}:`, e);
@@ -98,7 +99,8 @@ export class WhatsAppInstance {
 
             if (this.socket) {
                 try {
-                    this.socket.ev.removeAllListeners();
+                    this.socket.ev.removeAllListeners("connection.update");
+                    this.socket.ev.removeAllListeners("creds.update");
                     this.socket.end(undefined);
                 } catch (e) {}
                 this.socket = null;

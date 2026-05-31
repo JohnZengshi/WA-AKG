@@ -2,6 +2,7 @@ import { prisma } from "./prisma";
 import { NextRequest } from "next/server";
 import { auth } from "./auth";
 import { logger } from "./logger";
+import { getMachineId } from "./machine-id";
 
 // Role hierarchy for permission checks
 const ROLE_HIERARCHY = {
@@ -141,6 +142,24 @@ export async function isSessionOwner(userId: string, userRole: string, sessionId
             OR: [
                 { id: sessionId, userId },
                 { sessionId: sessionId, userId }
+            ]
+        }
+    });
+
+    return !!session;
+}
+
+/**
+ * Check if session is assigned to the current machine
+ */
+export async function isSessionOwnedByMachine(sessionId: string): Promise<boolean> {
+    const machineId = getMachineId();
+    
+    const session = await prisma.session.findFirst({
+        where: {
+            OR: [
+                { id: sessionId, assignedTo: machineId },
+                { sessionId: sessionId, assignedTo: machineId }
             ]
         }
     });

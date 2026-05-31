@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription }
 import { useRouter } from 'next/navigation';
 import { toast } from "sonner";
 import { Label } from '@/components/ui/label';
-import { Plus, Trash2, Settings, UserPlus, CheckSquare, Square, X } from 'lucide-react';
+import { Plus, Trash2, Settings, UserPlus, Smartphone, CheckSquare, Square, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
   AlertDialog,
