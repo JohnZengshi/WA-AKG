@@ -1,6 +1,6 @@
 import { NextResponse, NextRequest } from "next/server";
 import { waManager } from "@/modules/whatsapp/manager";
-import { getAuthenticatedUser, canAccessSession, isSessionOwnedByMachine } from "@/lib/api-auth";
+import { getAuthenticatedUser, canAccessSession } from "@/lib/api-auth";
 import { logger } from "@/lib/logger";
 
 export const dynamic = 'force-dynamic';
@@ -44,11 +44,6 @@ async function processDelete(sessionId: string, userId: string, userRole: string
         const canAccess = await canAccessSession(userId, userRole, sessionId);
         if (!canAccess) {
             return { sessionId, success: false, error: "Forbidden" };
-        }
-
-        const isOwned = await isSessionOwnedByMachine(sessionId);
-        if (!isOwned) {
-            return { sessionId, success: false, error: "Session not assigned to this machine" };
         }
 
         await deleteSessionWithTimeout(sessionId);

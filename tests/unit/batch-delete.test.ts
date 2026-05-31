@@ -10,10 +10,6 @@ vi.mock('@/lib/prisma', () => ({
   },
 }));
 
-vi.mock('@/lib/machine-id', () => ({
-  getMachineId: vi.fn(() => 'test-machine-id-123'),
-}));
-
 vi.mock('@/lib/auth', () => ({
   auth: vi.fn().mockResolvedValue({
     user: { id: 'user-1', email: 'admin@admin.com', role: 'SUPERADMIN' }
@@ -42,7 +38,6 @@ vi.mock('@/lib/api-auth', () => ({
     role: 'SUPERADMIN'
   }),
   canAccessSession: vi.fn().mockResolvedValue(true),
-  isSessionOwnedByMachine: vi.fn().mockResolvedValue(true),
 }));
 
 describe('Batch Delete Sessions', () => {

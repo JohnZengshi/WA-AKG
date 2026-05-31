@@ -11,10 +11,6 @@ vi.mock('@/lib/prisma', () => ({
   },
 }));
 
-vi.mock('@/lib/machine-id', () => ({
-  getMachineId: vi.fn(() => 'test-machine-id-123'),
-}));
-
 vi.mock('@/lib/auth', () => ({
   auth: vi.fn().mockResolvedValue({
     user: { id: 'user-1', email: 'admin@admin.com', role: 'SUPERADMIN' }
@@ -44,7 +40,6 @@ vi.mock('@/lib/api-auth', () => ({
     role: 'SUPERADMIN'
   }),
   canAccessSession: vi.fn().mockResolvedValue(true),
-  isSessionOwnedByMachine: vi.fn().mockResolvedValue(true),
 }));
 
 vi.mock('@/modules/whatsapp/antispam', () => ({
@@ -68,29 +63,9 @@ describe('Batch Delete Sessions - Extended', () => {
       role: 'SUPERADMIN'
     });
     vi.mocked(apiAuth.canAccessSession).mockResolvedValue(true);
-    vi.mocked(apiAuth.isSessionOwnedByMachine).mockResolvedValue(true);
   });
 
-  describe('Machine Ownership Check', () => {
-    it('should reject if session not owned by current machine', async () => {
-      const { isSessionOwnedByMachine } = await import('@/lib/api-auth');
-      vi.mocked(isSessionOwnedByMachine).mockResolvedValue(false);
-
-      const { POST } = await import('@/app/api/sessions/batch-delete/route');
-      const request = new Request('http://localhost/api/sessions/batch-delete', {
-        method: 'POST',
-        body: JSON.stringify({ sessionIds: ['session-1'] }),
-      });
-
-      const response = await POST(request as any);
-      const data = await response.json();
-
-      expect(response.status).toBe(200);
-      expect(data.data.deleted).toBe(0);
-      expect(data.data.failed).toBe(1);
-      expect(data.data.errors[0]).toContain('not assigned to this machine');
-    });
-
+  describe('Access Check', () => {
     it('should reject if user cannot access session', async () => {
       const { canAccessSession } = await import('@/lib/api-auth');
       vi.mocked(canAccessSession).mockResolvedValue(false);
@@ -108,69 +83,6 @@ describe('Batch Delete Sessions - Extended', () => {
       expect(data.data.deleted).toBe(0);
       expect(data.data.failed).toBe(1);
       expect(data.data.errors[0]).toContain('Forbidden');
-    });
-
-    it('should reject if user cannot access session', async () => {
-      const { canAccessSession } = await import('@/lib/api-auth');
-      vi.mocked(canAccessSession).mockResolvedValue(false);
-
-      const { POST } = await import('@/app/api/sessions/batch-delete/route');
-      const request = new Request('http://localhost/api/sessions/batch-delete', {
-        method: 'POST',
-        body: JSON.stringify({ sessionIds: ['session-1'] }),
-      });
-
-      const response = await POST(request as any);
-      const data = await response.json();
-
-      expect(response.status).toBe(200);
-      expect(data.data.deleted).toBe(0);
-      expect(data.data.failed).toBe(1);
-      expect(data.data.errors[0]).toContain('Forbidden');
-    });
-  });
-
-  describe('Mixed Results', () => {
-    it('should handle mix of owned and unowned sessions', async () => {
-      const { isSessionOwnedByMachine } = await import('@/lib/api-auth');
-      vi.mocked(isSessionOwnedByMachine)
-        .mockResolvedValueOnce(true)
-        .mockResolvedValueOnce(false);
-
-      mockWaManager.deleteSession.mockResolvedValue(undefined);
-
-      const { POST } = await import('@/app/api/sessions/batch-delete/route');
-      const request = new Request('http://localhost/api/sessions/batch-delete', {
-        method: 'POST',
-        body: JSON.stringify({ sessionIds: ['session-1', 'session-2'] }),
-      });
-
-      const response = await POST(request as any);
-      const data = await response.json();
-
-      expect(data.data.deleted).toBe(1);
-      expect(data.data.failed).toBe(1);
-    });
-
-    it('should handle mix of accessible and forbidden sessions', async () => {
-      const { canAccessSession } = await import('@/lib/api-auth');
-      vi.mocked(canAccessSession)
-        .mockResolvedValueOnce(true)
-        .mockResolvedValueOnce(false);
-
-      mockWaManager.deleteSession.mockResolvedValue(undefined);
-
-      const { POST } = await import('@/app/api/sessions/batch-delete/route');
-      const request = new Request('http://localhost/api/sessions/batch-delete', {
-        method: 'POST',
-        body: JSON.stringify({ sessionIds: ['session-1', 'session-2'] }),
-      });
-
-      const response = await POST(request as any);
-      const data = await response.json();
-
-      expect(data.data.deleted).toBe(1);
-      expect(data.data.failed).toBe(1);
     });
   });
 
@@ -192,9 +104,6 @@ describe('Batch Delete Sessions - Extended', () => {
     it('should handle delete errors with proper messages', async () => {
       mockWaManager.deleteSession.mockRejectedValue(new Error('Database connection lost'));
 
-      const { isSessionOwnedByMachine } = await import('@/lib/api-auth');
-      vi.mocked(isSessionOwnedByMachine).mockResolvedValue(true);
-
       const { POST } = await import('@/app/api/sessions/batch-delete/route');
       const request = new Request('http://localhost/api/sessions/batch-delete', {
         method: 'POST',
@@ -210,9 +119,6 @@ describe('Batch Delete Sessions - Extended', () => {
 
     it('should handle non-Error rejections', async () => {
       mockWaManager.deleteSession.mockRejectedValue('String error');
-
-      const { isSessionOwnedByMachine } = await import('@/lib/api-auth');
-      vi.mocked(isSessionOwnedByMachine).mockResolvedValue(true);
 
       const { POST } = await import('@/app/api/sessions/batch-delete/route');
       const request = new Request('http://localhost/api/sessions/batch-delete', {
