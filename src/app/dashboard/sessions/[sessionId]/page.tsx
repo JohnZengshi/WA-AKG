@@ -30,6 +30,7 @@ type SessionDetail = {
     status: string;
     userId: string;
     uptime: number; // in seconds
+    assignedTo?: string | null;
     me?: {
         id: string;
         name: string;
@@ -286,6 +287,12 @@ export default function SessionDetailPage() {
                                 <span className="text-lg font-medium truncate">{session.me?.name || session.me?.id || "-"}</span>
                             </div>
                         </div>
+                        {session.assignedTo && (
+                            <div className="p-4 bg-gray-50 rounded-lg">
+                                <span className="text-sm text-gray-500 block">Machine ID</span>
+                                <span className="text-sm font-mono text-gray-700">{session.assignedTo}</span>
+                            </div>
+                        )}
 
                         {/* System Resource Extension */}
                         {session.status === 'CONNECTED' && systemMetrics && (

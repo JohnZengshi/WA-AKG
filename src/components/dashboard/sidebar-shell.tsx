@@ -3,8 +3,11 @@
 import { SidebarNav } from "./sidebar-nav";
 import { useSidebar } from "./sidebar-context";
 import { Button } from "@/components/ui/button";
-import { LogOut } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { LogOut, Monitor } from "lucide-react";
 import { signOut } from "next-auth/react";
+import { useState, useEffect } from "react";
+import { getMachineId } from "@/lib/machine-id";
 
 interface SidebarShellProps {
     appName: string;
@@ -15,6 +18,12 @@ interface SidebarShellProps {
 
 export function SidebarShell({ appName, userName, userEmail, version }: SidebarShellProps) {
     const { isCollapsed } = useSidebar();
+    const [machineId, setMachineId] = useState<string>("");
+
+    useEffect(() => {
+        const id = getMachineId();
+        setMachineId(id);
+    }, []);
 
     return (
         <aside
@@ -82,6 +91,25 @@ export function SidebarShell({ appName, userName, userEmail, version }: SidebarS
                         </Button>
                         <p className="text-[9px] text-muted-foreground/50 text-center mt-2 font-mono">v{version}</p>
                     </>
+                )}
+            </div>
+
+            {/* Machine ID Footer */}
+            <div className={`border-t border-border/30 bg-background/40 transition-all duration-300 ${isCollapsed ? "p-2" : "p-4"}`}>
+                {isCollapsed ? (
+                    <div className="flex justify-center">
+                        <Badge variant="secondary" className="h-6 w-6 rounded-full p-0 flex items-center justify-center">
+                            <Monitor size={12} />
+                        </Badge>
+                    </div>
+                ) : (
+                    <div className="flex items-center gap-2">
+                        <Monitor size={14} className="text-muted-foreground" />
+                        <div className="flex-1 min-w-0">
+                            <p className="text-[10px] text-muted-foreground font-medium">Machine ID</p>
+                            <p className="text-[9px] text-muted-foreground/70 font-mono truncate">{machineId || "Loading..."}</p>
+                        </div>
+                    </div>
                 )}
             </div>
         </aside>
