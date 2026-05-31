@@ -1,4 +1,4 @@
-FROM node:20-slim AS builder
+FROM node:20-bookworm-slim AS builder
 WORKDIR /app
 
 # Install build-time system dependencies
@@ -23,7 +23,7 @@ RUN --mount=type=cache,target=/root/.npm \
     npm run build
 
 # Production image
-FROM node:20-slim AS runner
+FROM node:20-bookworm-slim AS runner
 WORKDIR /app
 
 # Install runtime system dependencies (OpenSSL for Prisma)

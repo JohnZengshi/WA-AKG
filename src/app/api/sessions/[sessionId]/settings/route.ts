@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse, NextRequest } from "next/server";
 import { waManager } from "@/modules/whatsapp/manager";
-import { getAuthenticatedUser, canAccessSession, isAdmin } from "@/lib/api-auth";
+import { getAuthenticatedUser, canAccessSession, isAdmin, isSessionOwnedByMachine } from "@/lib/api-auth";
 
 // GET: Retrieve session settings
 export async function GET(
@@ -54,6 +54,12 @@ export async function PATCH(
         const canAccess = await canAccessSession(user.id, user.role, sessionId);
         if (!canAccess) {
             return NextResponse.json({ status: false, message: "Forbidden - Cannot access this session", error: "Forbidden - Cannot access this session" }, { status: 403 });
+        }
+
+        // Check if session belongs to current machine
+        const isOwnedByMachine = await isSessionOwnedByMachine(sessionId);
+        if (!isOwnedByMachine) {
+            return NextResponse.json({ status: false, message: "Forbidden - Session not assigned to this machine", error: "Forbidden - Session not assigned to this machine" }, { status: 403 });
         }
 
         const body = await request.json();
@@ -118,6 +124,12 @@ export async function DELETE(
         const canAccess = await canAccessSession(user.id, user.role, sessionId);
         if (!canAccess) {
             return NextResponse.json({ status: false, message: "Forbidden - Cannot delete this session", error: "Forbidden - Cannot delete this session" }, { status: 403 });
+        }
+
+        // Check if session belongs to current machine
+        const isOwnedByMachine = await isSessionOwnedByMachine(sessionId);
+        if (!isOwnedByMachine) {
+            return NextResponse.json({ status: false, message: "Forbidden - Session not assigned to this machine", error: "Forbidden - Session not assigned to this machine" }, { status: 403 });
         }
 
         // Disconnect WhatsApp session first

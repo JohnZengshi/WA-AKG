@@ -18,6 +18,7 @@ type Session = {
     sessionId: string;
     status: string;
     qr?: string | null;
+    assignedTo?: string | null;
 };
 
 export function SessionManager({ user }: { user: any }) {
@@ -193,6 +194,11 @@ export function SessionManager({ user }: { user: any }) {
                                             {session.status}
                                         </Badge>
                                     </div>
+                                    {session.assignedTo && (
+                                        <div className="mt-2 text-xs text-muted-foreground font-mono">
+                                            Machine: {session.assignedTo.substring(0, 8)}...
+                                        </div>
+                                    )}
                                 </CardContent>
                                 <CardFooter className="bg-slate-50/50 p-3 flex justify-end gap-2">
                                     <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/sessions/access?session=${session.sessionId}`)}>
