@@ -132,21 +132,9 @@ export async function DELETE(
             return NextResponse.json({ status: false, message: "Forbidden - Session not assigned to this machine", error: "Forbidden - Session not assigned to this machine" }, { status: 403 });
         }
 
-        // Disconnect WhatsApp session first
-        const instance = waManager.getInstance(sessionId);
-        if (instance?.socket) {
-            try {
-                await instance.socket.logout();
-            } catch (e) {
-                console.log("Session logout error (might be already disconnected):", e);
-            }
-        }
-        waManager.deleteSession(sessionId);
+        await waManager.deleteSession(sessionId);
 
-        // Delete from database
-        await prisma.session.delete({
-            where: { sessionId }
-        });
+        return NextResponse.json({ status: true, message: "Session deleted successfully" });
 
         return NextResponse.json({ status: true, message: "Session deleted successfully" });
 

@@ -246,6 +246,19 @@ class AntiSpamManager {
     clearCache(sessionId: string) {
         this.configCache.delete(sessionId);
     }
+
+    clearSession(sessionId: string) {
+        const queue = this.queues.get(sessionId);
+        if (queue) {
+            for (const item of queue) {
+                item.reject(new Error("Session deleted"));
+            }
+        }
+        this.queues.delete(sessionId);
+        this.sessionHistory.delete(sessionId);
+        this.configCache.delete(sessionId);
+        this.processing.delete(sessionId);
+    }
 }
 
 export const antispam = AntiSpamManager.getInstance();
