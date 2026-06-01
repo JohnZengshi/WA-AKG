@@ -11,6 +11,8 @@ import { ArrowLeft, Play, Square, RotateCcw, LogOut, Power, Trash2, QrCode, Acti
 import Link from "next/link";
 import { io, Socket } from "socket.io-client";
 import { QRCodeSVG } from "qrcode.react";
+import { getMachineId } from "@/lib/machine-id";
+import { useSession } from "next-auth/react";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -43,6 +45,7 @@ export default function SessionDetailPage() {
     const router = useRouter();
     const sessionId = params.sessionId as string;
 
+    const { status: authStatus } = useSession();
     const [session, setSession] = useState<SessionDetail | null>(null);
     const [loading, setLoading] = useState(true);
     const [qrCode, setQrCode] = useState<string | null>(null);
@@ -82,6 +85,11 @@ export default function SessionDetailPage() {
             const responseData = await res.json();
             const data = responseData?.data;
             if (!data) throw new Error("No data returned");
+            if (data.assignedTo && data.assignedTo !== getMachineId()) {
+                toast.error("This session is not owned by this machine");
+                router.push("/dashboard/sessions");
+                return;
+            }
             setSession(data);
             setQrCode(data.qr || null);
             setPairingCode(data.pairingCode || null);
@@ -150,6 +158,15 @@ export default function SessionDetailPage() {
             clearInterval(metricsInterval);
         };
     }, [sessionId]);
+
+    // Re-check ownership after auth session loads (prevents false redirect when nextAuth is still loading)
+    useEffect(() => {
+        if (authStatus === "loading" || !session) return;
+        if (session.assignedTo && session.assignedTo !== getMachineId()) {
+            toast.error("This session is not owned by this machine");
+            router.push("/dashboard/sessions");
+        }
+    }, [authStatus, session, router]);
 
     const performAction = async (action: string, payload: any = {}) => {
         const loadingToast = toast.loading(` performing ${action}...`);
