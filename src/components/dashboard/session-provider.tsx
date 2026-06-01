@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { getCookie, setCookie } from "@/lib/client-cookie";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { getMachineId, fetchServerMachineId } from "@/lib/machine-id";
 
 interface Session {
     id: string;
@@ -19,6 +20,7 @@ interface SessionContextType {
     setSessionId: (id: string) => void;
     refreshSessions: () => Promise<void>;
     loading: boolean;
+    machineId: string;
 }
 
 const SessionContext = createContext<SessionContextType | undefined>(undefined);
@@ -27,7 +29,16 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     const [sessions, setSessions] = useState<Session[]>([]);
     const [sessionId, setSessionIdState] = useState<string>("");
     const [loading, setLoading] = useState(true);
+    const [machineId, setMachineId] = useState<string>(() => getMachineId());
     const router = useRouter();
+
+    useEffect(() => {
+        fetchServerMachineId().then((id) => {
+            if (id && id !== machineId) {
+                setMachineId(id);
+            }
+        });
+    }, []);
 
     const fetchSessions = async () => {
         try {
@@ -40,17 +51,19 @@ export function SessionProvider({ children }: { children: ReactNode }) {
                 // Show all sessions so users can manage disconnected ones (e.g. webhooks, settings)
                 setSessions(data);
 
-                // Sync with cookie
                 const cookieId = getCookie("sessionId");
-                if (cookieId && data.find((s: Session) => s.sessionId === cookieId)) {
-                    setSessionIdState(cookieId);
-                } else if (data.length > 0) {
-                    // Default to first
-                    const first = data[0].sessionId;
-                    setSessionIdState(first);
-                    setCookie("sessionId", first);
+                const cookieSession = cookieId ? data.find((s: Session) => s.sessionId === cookieId) : null;
+                const isCookieOwned = cookieSession && (!cookieSession.assignedTo || cookieSession.assignedTo === machineId);
+                if (isCookieOwned) {
+                    setSessionIdState(cookieId as string);
                 } else {
-                    setSessionIdState("");
+                    const firstOwned = data.find((s: Session) => !s.assignedTo || s.assignedTo === machineId);
+                    if (firstOwned) {
+                        setSessionIdState(firstOwned.sessionId);
+                        setCookie("sessionId", firstOwned.sessionId);
+                    } else {
+                        setSessionIdState("");
+                    }
                 }
             }
         } catch (error) {
@@ -72,7 +85,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     };
 
     return (
-        <SessionContext.Provider value={{ sessions, sessionId, setSessionId, refreshSessions: fetchSessions, loading }}>
+        <SessionContext.Provider value={{ sessions, sessionId, setSessionId, refreshSessions: fetchSessions, loading, machineId }}>
             {children}
         </SessionContext.Provider>
     );
