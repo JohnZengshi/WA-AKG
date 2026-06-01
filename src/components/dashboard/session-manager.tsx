@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription }
 import { useRouter } from 'next/navigation';
 import { toast } from "sonner";
 import { Label } from '@/components/ui/label';
+import { useSession } from './session-provider';
 import { Plus, Trash2, Settings, UserPlus, Smartphone, CheckSquare, Square, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -42,6 +43,7 @@ export function SessionManager({ user }: { user: any }) {
     const [selected, setSelected] = useState<string[]>([]);
     const [deleting, setDeleting] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const { machineId } = useSession();
     const router = useRouter();
 
     useEffect(() => {
@@ -150,7 +152,16 @@ export function SessionManager({ user }: { user: any }) {
         });
     };
 
+    const isSessionOwned = (session: Session): boolean => {
+        return !session.assignedTo || session.assignedTo === machineId;
+    };
+
     const handleCardClick = (sessionId: string) => {
+        const session = sessions.find(s => s.sessionId === sessionId);
+        if (session && !isSessionOwned(session)) {
+            const isAdmin = user?.role === "SUPERADMIN" || user?.role === "OWNER";
+            if (!isAdmin) return;
+        }
         toggleSelect(sessionId);
     };
 
@@ -160,10 +171,14 @@ export function SessionManager({ user }: { user: any }) {
     };
 
     const selectAll = () => {
-        if (selected.length === sessions.length) {
+        const isAdmin = user?.role === "SUPERADMIN" || user?.role === "OWNER";
+        const targetIds = isAdmin
+            ? sessions.map(s => s.sessionId)
+            : sessions.filter(s => isSessionOwned(s)).map(s => s.sessionId);
+        if (selected.length === targetIds.length) {
             setSelected([]);
         } else {
-            setSelected(sessions.map(s => s.sessionId));
+            setSelected(targetIds);
         }
     };
 
@@ -249,7 +264,7 @@ export function SessionManager({ user }: { user: any }) {
                     <h2 className="text-xl font-semibold text-slate-800">Active Sessions ({sessions.length})</h2>
                     {sessions.length > 0 && (
                         <Button variant="outline" size="sm" onClick={selectAll}>
-                            {selected.length === sessions.length ? 'Deselect All' : 'Select All'}
+                            {selected.length > 0 && selected.length === (user?.role === "SUPERADMIN" || user?.role === "OWNER" ? sessions.length : sessions.filter(s => isSessionOwned(s)).length) ? 'Deselect All' : 'Select All'}
                         </Button>
                     )}
                 </div>
@@ -280,35 +295,61 @@ export function SessionManager({ user }: { user: any }) {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {sessions.map(session => {
                             const isSelected = selected.includes(session.sessionId);
+                            const notOwned = !isSessionOwned(session);
+                            const isAdmin = user?.role === "SUPERADMIN" || user?.role === "OWNER";
+                            const canSelect = isAdmin || !notOwned;
                             return (
-                                <Card key={session.id} className={`hover:shadow-md transition-shadow cursor-pointer ${isSelected ? "ring-2 ring-primary border-primary" : ""}`} onClick={() => handleCardClick(session.sessionId)}>
+                                <Card key={session.id} data-testid="session-card"
+                                    className={`transition-shadow ${!canSelect ? 'opacity-50 cursor-not-allowed bg-gray-50' : 'hover:shadow-md cursor-pointer'} ${isSelected && canSelect ? "ring-2 ring-primary border-primary" : ""}`}
+                                    onClick={() => {
+                                        if (canSelect) handleCardClick(session.sessionId);
+                                    }}>
                                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                         <div className="flex items-center gap-2">
-                                            {isSelected ? (
+                                            {!canSelect ? (
+                                                <Square className="h-4 w-4 text-muted-foreground/20" />
+                                            ) : isSelected ? (
                                                 <CheckSquare className="h-4 w-4 text-primary" />
                                             ) : (
                                                 <Square className="h-4 w-4 text-muted-foreground/40" />
                                             )}
-                                            <CardTitle className="text-base font-medium truncate">
+                                            <CardTitle className={`text-base font-medium truncate ${!canSelect ? 'text-muted-foreground' : ''}`}>
                                                 {session.name}
                                             </CardTitle>
                                         </div>
-                                        <Smartphone className="h-4 w-4 text-muted-foreground" />
+                                        <Smartphone className={`h-4 w-4 ${!canSelect ? 'text-muted-foreground/30' : 'text-muted-foreground'}`} />
                                     </CardHeader>
                                     <CardContent>
-                                        <div className="text-2xl font-bold truncate mb-2">{session.sessionId}</div>
-                                        <div className="flex items-center space-x-2">
-                                            <Badge variant={session.status === 'CONNECTED' ? 'default' : 'secondary'}
+                                        <div className={`text-2xl font-bold truncate mb-2 ${!canSelect ? 'text-muted-foreground' : ''}`}>{session.sessionId}</div>
+                                        {session.assignedTo && (
+                                            <p className={`text-[10px] font-mono truncate mb-2 ${!canSelect ? 'text-red-400' : 'text-muted-foreground/60'}`}>
+                                                Machine: {session.assignedTo.substring(0, 8)}...
+                                            </p>
+                                        )}
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <Badge data-testid="status-badge" variant={session.status === 'CONNECTED' ? 'default' : 'secondary'}
                                                 className={session.status === 'CONNECTED' ? 'bg-green-500 hover:bg-green-600' : ''}>
                                                 {session.status}
                                             </Badge>
+                                            {notOwned && !isAdmin && (
+                                                <Badge variant="outline" className="text-[10px] text-destructive border-destructive/30">
+                                                    Other machine
+                                                </Badge>
+                                            )}
+                                            {notOwned && isAdmin && (
+                                                <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-300">
+                                                    Other machine (admin bypass)
+                                                </Badge>
+                                            )}
                                         </div>
                                     </CardContent>
                                     <CardFooter className="bg-slate-50/50 p-3 flex justify-end gap-2">
-                                        <Button variant="outline" size="sm" onClick={(e) => handleActionClick(e, () => router.push(`/dashboard/sessions/access?session=${session.sessionId}`))}>
+                                        <Button variant="outline" size="sm" disabled={!isSessionOwned(session)}
+                                            onClick={(e) => handleActionClick(e, () => router.push(`/dashboard/sessions/access?session=${session.sessionId}`))}>
                                             <UserPlus className="h-4 w-4 mr-1" /> Share
                                         </Button>
-                                        <Button variant="outline" size="sm" onClick={(e) => handleActionClick(e, () => handleManageSession(session.sessionId))}>
+                                        <Button variant="outline" size="sm" disabled={!isSessionOwned(session)}
+                                            onClick={(e) => handleActionClick(e, () => handleManageSession(session.sessionId))}>
                                             <Settings className="h-4 w-4 mr-1" /> Manage
                                         </Button>
                                     </CardFooter>
