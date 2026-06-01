@@ -2,6 +2,13 @@
 // Uses localStorage in browser, fs in server
 const MACHINE_ID_KEY = "wa-akg-machine-id";
 
+function generateUUID(): string {
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = crypto.getRandomValues(new Uint8Array(1))[0] & 15;
+    return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
+
 export function createMachineIdGetter(
   deps: {
     existsSync?: (path: string) => boolean;
@@ -15,7 +22,7 @@ export function createMachineIdGetter(
     existsSync,
     readFileSync,
     writeFileSync,
-    randomUUID = () => crypto.randomUUID(),
+    randomUUID = generateUUID,
     isClient = typeof window !== "undefined",
   } = deps;
 
