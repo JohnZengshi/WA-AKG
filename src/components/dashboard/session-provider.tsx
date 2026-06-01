@@ -10,6 +10,7 @@ interface Session {
     sessionId: string;
     name: string;
     status: string;
+    assignedTo?: string | null;
 }
 
 interface SessionContextType {

@@ -3,13 +3,25 @@ import { codeInspectorPlugin } from "code-inspector-plugin";
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["sharp", "bcryptjs"],
-  // code-inspector-plugin: DOM 元素 Alt+Shift+Click 跳转 IDE 源代码
-  // 使用官方推荐的 turbopack rules 配置（>= 15.3.x），全量覆盖 **/*.{jsx,tsx,js,ts,mjs,mts}
-  // turbopack: {
-  //   rules: codeInspectorPlugin({
-  //     bundler: "turbopack",
-  //   }),
-  // },
+  turbopack: {
+    rules: codeInspectorPlugin({
+      bundler: "turbopack",
+      exclude: [
+        "**/layout.{tsx,ts,jsx,js}",
+        "**/page.{tsx,ts,jsx,js}",
+        "**/loading.{tsx,ts,jsx,js}",
+        "**/error.{tsx,ts,jsx,js}",
+        "**/not-found.{tsx,ts,jsx,js}",
+        "**/global-error.{tsx,ts,jsx,js}",
+        "**/template.{tsx,ts,jsx,js}",
+        "**/default.{tsx,ts,jsx,js}",
+        "**/icon.{tsx,ts,jsx,js}",
+        "**/apple-icon.{tsx,ts,jsx,js}",
+        "**/middleware.{tsx,ts,jsx,js}",
+        "**/node_modules/**",
+      ],
+    }),
+  },
 };
 
 export default nextConfig;

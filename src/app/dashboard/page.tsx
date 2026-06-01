@@ -191,6 +191,9 @@ export default async function DashboardPage() {
                                                 <div className="min-w-0 flex-1">
                                                     <p className="text-sm font-bold text-foreground truncate">{s.name}</p>
                                                     <p className="text-xs text-muted-foreground font-mono truncate mt-1">{s.sessionId}</p>
+                                                    {s.assignedTo && (
+                                                        <p className="text-[10px] text-muted-foreground/60 font-mono truncate mt-1">Machine: {s.assignedTo.substring(0, 8)}...</p>
+                                                    )}
                                                 </div>
                                                 <div className={`flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full flex-shrink-0
                                                     ${isConnected ? 'bg-emerald-50 text-emerald-700' : isDisconnected ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-600'}

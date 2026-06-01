@@ -42,6 +42,9 @@ export function SessionSelector() {
                                     <div className="flex flex-col min-w-0">
                                         <span className="font-medium text-sm text-foreground truncate">{s.name}</span>
                                         <span className="text-[10px] text-muted-foreground font-mono truncate">{s.sessionId}</span>
+                                        {s.assignedTo && (
+                                            <span className="text-[9px] text-muted-foreground/60 font-mono truncate">Machine: {s.assignedTo.substring(0, 8)}...</span>
+                                        )}
                                     </div>
                                 </div>
                             </SelectItem>

@@ -3,6 +3,9 @@ import { WhatsAppInstance } from "./instance";
 import { Server } from "socket.io";
 import { initScheduler } from "@/lib/cron";
 import { logger } from "@/lib/logger";
+import { randomizeBrowser } from "@/lib/browser-fingerprint";
+import { getMachineId } from "@/lib/machine-id";
+import { antispam } from "./antispam";
 
 export class WhatsAppManager {
     private static instance: WhatsAppManager;
@@ -26,19 +29,45 @@ export class WhatsAppManager {
 
     async loadSessions() {
         if (!this.io) throw new Error("Socket.IO not initialized in WhatsAppManager");
+        
+        const machineId = getMachineId();
+        logger.info("Manager", `Machine ID: ${machineId}`);
+        
+        // Load sessions assigned to this machine OR unassigned sessions
         const sessions = await prisma.session.findMany({
-            where: { status: { not: "LOGGED_OUT" } }
+            where: {
+                status: { not: "LOGGED_OUT" },
+                OR: [
+                    { assignedTo: machineId },
+                    { assignedTo: null }
+                ]
+            }
         });
 
+        // Auto-bind unassigned sessions to this machine
+        let boundCount = 0;
+        for (const session of sessions) {
+            if (session.assignedTo === null) {
+                await prisma.session.update({
+                    where: { sessionId: session.sessionId },
+                    data: { assignedTo: machineId }
+                });
+                session.assignedTo = machineId;
+                boundCount++;
+            }
+        }
+
+        // Initialize WhatsApp instances for loaded sessions
         for (const session of sessions) {
             const instance = new WhatsAppInstance(session.sessionId, session.userId, this.io);
             this.sessions.set(session.sessionId, instance);
             await instance.init();
         }
-        logger.success("Manager", `Loaded ${sessions.length} sessions.`);
+        
+        logger.success("Manager", `Loaded ${sessions.length} sessions. Bound ${boundCount} unassigned sessions.`);
     }
 
-    async createSession(userId: string, name: string, customSessionId?: string) {
+    async createSession(userId: string, name: string, customSessionId?: string, proxyUrl?: string) {
         // Fallback to global IO if instance IO is missing (Next.js Context Issue)
         if (!this.io && (global as any).io) {
             this.io = (global as any).io;
@@ -52,12 +81,17 @@ export class WhatsAppManager {
         // Use custom ID if provided, otherwise generate random
         const sessionId = customSessionId || Math.random().toString(36).substring(7);
 
+        const browserFingerprint = randomizeBrowser();
+        const machineId = getMachineId();
+
         const session = await prisma.session.create({
             data: {
                 userId,
                 name,
                 sessionId,
                 status: "DISCONNECTED",
+                assignedTo: machineId,
+                config: { browserFingerprint, ...(proxyUrl && { proxyUrl }) },
                 botConfig: {
                     create: {
                         enabled: true,
@@ -82,11 +116,23 @@ export class WhatsAppManager {
     async deleteSession(sessionId: string) {
         const instance = this.sessions.get(sessionId);
         if (instance) {
-            // Logout/Close socket
-            instance.socket?.end(undefined);
+            instance.isStopped = true;
+            try {
+                await instance.socket?.logout();
+            } catch (e) {
+                logger.warn("Manager", `Logout warning for ${sessionId}:`, e);
+            }
+            
+            await instance.destroy();
             this.sessions.delete(sessionId);
         }
-        await prisma.session.delete({ where: { sessionId } });
+        
+        antispam.clearSession(sessionId);
+        
+        await prisma.$transaction([
+            prisma.authState.deleteMany({ where: { sessionId } }),
+            prisma.session.deleteMany({ where: { sessionId } }),
+        ]);
     }
 
     async stopSession(sessionId: string) {

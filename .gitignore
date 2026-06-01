@@ -12,6 +12,10 @@
 
 # testing
 /coverage
+test-results/
+playwright-report/
+blob-report/
+.playwright/
 
 # next.js
 /.next/
@@ -55,3 +59,5 @@ next-env.d.ts
 !/data/uploads/.gitkeep
 /public/media/*
 server.log
+
+.sisyphus/
