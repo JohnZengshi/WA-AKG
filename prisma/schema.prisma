@@ -59,8 +59,9 @@ model Session {
   status    String   @default("DISCONNECTED") // CONNECTED, DISCONNECTED, ZOMBIE
   qr        String?  @db.Text
   config    Json? // Store instance specific config (e.g. "read_receipts": true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  assignedTo String?
 
   user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   contacts          Contact[]
@@ -72,6 +73,8 @@ model Session {
   webhooks          Webhook[]
   botConfig         BotConfig?
   sessionAccesses   SessionAccess[]
+
+  @@index([assignedTo])
 }
 
 model Contact {

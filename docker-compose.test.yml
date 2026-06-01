@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  machine-a:
+    build: .
+    ports:
+      - "3001:3001"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/waakg?schema=public
+      - PORT=3001
+      - ADMIN_EMAIL=admin@admin.com
+      - ADMIN_PASSWORD=admin123
+      - AUTH_SECRET=1aoqX/n5RtLQuJW0RVqhnnzXWzLJ7bkUv8n4fviQA3I=
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./data/machine-a:/app/data
+
+  machine-b:
+    build: .
+    ports:
+      - "3002:3001"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/waakg?schema=public
+      - PORT=3001
+      - ADMIN_EMAIL=admin@admin.com
+      - ADMIN_PASSWORD=admin123
+      - AUTH_SECRET=1aoqX/n5RtLQuJW0RVqhnnzXWzLJ7bkUv8n4fviQA3I=
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./data/machine-b:/app/data
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=waakg
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:

@@ -31,14 +31,14 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { name, sessionId } = body;
+        const { name, sessionId, proxyUrl } = body;
 
         if (!name) {
             return NextResponse.json({ status: false, message: "Session name is required", error: "Session name is required" }, { status: 400 });
         }
 
         // Create session for the authenticated user
-        const session = await waManager.createSession(user.id, name, sessionId);
+        const session = await waManager.createSession(user.id, name, sessionId, proxyUrl);
         return NextResponse.json({ status: true, message: "Session created successfully", data: session });
     } catch (error) {
         console.error("Create session error:", error);
