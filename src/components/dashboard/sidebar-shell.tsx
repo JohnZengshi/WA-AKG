@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { LogOut, Monitor } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { useState, useEffect } from "react";
-import { getMachineId } from "@/lib/machine-id";
+import { getMachineId, fetchServerMachineId } from "@/lib/machine-id";
 
 interface SidebarShellProps {
     appName: string;
@@ -21,8 +21,9 @@ export function SidebarShell({ appName, userName, userEmail, version }: SidebarS
     const [machineId, setMachineId] = useState<string>("");
 
     useEffect(() => {
-        const id = getMachineId();
-        setMachineId(id);
+        fetchServerMachineId()
+            .then((id) => setMachineId(id))
+            .catch(() => setMachineId(getMachineId()));
     }, []);
 
     return (

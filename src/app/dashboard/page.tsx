@@ -19,6 +19,7 @@ import {
 import { auth } from "@/lib/auth";
 import { getAccessibleSessions } from "@/lib/api-auth";
 import { redirect } from "next/navigation";
+import { DashboardSessionList } from "./session-list";
 
 export const dynamic = 'force-dynamic';
 
@@ -178,36 +179,7 @@ export default async function DashboardPage() {
                         </CardContent>
                     </Card>
                 ) : (
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                        {sessions.map(s => {
-                            const isConnected = s.status === 'CONNECTED';
-                            const isDisconnected = !isConnected;
-
-                            return (
-                                <Link key={s.id} href={`/dashboard/sessions/${s.sessionId}`}>
-                                    <Card className="glass-panel border-border/50 shadow-sm hover:shadow-md hover:shadow-primary/5 hover:-translate-y-0.5 transition-all duration-300 cursor-pointer h-full">
-                                        <CardContent className="p-4">
-                                            <div className="flex items-start justify-between mb-2">
-                                                <div className="min-w-0 flex-1">
-                                                    <p className="text-sm font-bold text-foreground truncate">{s.name}</p>
-                                                    <p className="text-xs text-muted-foreground font-mono truncate mt-1">{s.sessionId}</p>
-                                                    {s.assignedTo && (
-                                                        <p className="text-[10px] text-muted-foreground/60 font-mono truncate mt-1">Machine: {s.assignedTo.substring(0, 8)}...</p>
-                                                    )}
-                                                </div>
-                                                <div className={`flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full flex-shrink-0
-                                                    ${isConnected ? 'bg-emerald-50 text-emerald-700' : isDisconnected ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-600'}
-                                                `}>
-                                                    <span className={`h-1.5 w-1.5 rounded-full ${isConnected ? 'bg-emerald-500' : isDisconnected ? 'bg-red-400' : 'bg-amber-400'}`} />
-                                                    {s.status}
-                                                </div>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                </Link>
-                            );
-                        })}
-                    </div>
+                    <DashboardSessionList sessions={sessions} />
                 )}
             </div>
         </div>
