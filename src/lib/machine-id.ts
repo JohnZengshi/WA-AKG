@@ -62,3 +62,27 @@ export const getMachineId = createMachineIdGetter({
   readFileSync: typeof window === "undefined" ? require("fs").readFileSync : undefined,
   writeFileSync: typeof window === "undefined" ? require("fs").writeFileSync : undefined,
 });
+
+let _serverMachineId: string | null = null;
+let _serverMachineIdPromise: Promise<string> | null = null;
+
+export async function fetchServerMachineId(): Promise<string> {
+  if (_serverMachineId) return _serverMachineId;
+  if (_serverMachineIdPromise) return _serverMachineIdPromise;
+
+  _serverMachineIdPromise = fetch("/api/system/machine-id")
+    .then((r) => r.json())
+    .then((data) => {
+      _serverMachineId = data.machineId ?? getMachineId();
+      if (typeof window !== "undefined") {
+        localStorage.setItem(MACHINE_ID_KEY, _serverMachineId!);
+      }
+      return _serverMachineId!;
+    })
+    .catch(() => {
+      _serverMachineId = getMachineId();
+      return _serverMachineId!;
+    });
+
+  return _serverMachineIdPromise;
+}
