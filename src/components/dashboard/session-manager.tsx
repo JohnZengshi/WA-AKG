@@ -316,7 +316,6 @@ export function SessionManager({ user }: { user: any }) {
                             );
                         })}
                     </div>
-                    </div>
                 )}
             </div>
 
