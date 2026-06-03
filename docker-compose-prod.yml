@@ -51,4 +51,4 @@ services:
     volumes:
       - ./data/app:/app/data
       - ./data/uploads:/app/uploads
-      - ./machine-id:/app/.machine-id
+      - ./.machine-id:/app/.machine-id
