@@ -15,13 +15,7 @@
     "dev:stop": "node scripts/dev-stop.mjs",
     "dev:remote": "DATABASE_URL=postgresql://postgres:postgres@10.0.0.228:5432/wa_gateway_db?schema=public npx tsx src/server/index.ts",
     "dev:remote:win": "set \"DATABASE_URL=postgresql://postgres:postgres@10.0.0.228:5432/wa_gateway_db?schema=public\" && npx tsx src/server/index.ts",
-    "postinstall": "patch-package",
-    "test": "vitest",
-    "test:ui": "vitest --ui",
-    "test:unit": "vitest run",
-    "test:e2e": "playwright test",
-    "e2e:run": "bash scripts/e2e/run-e2e.sh",
-    "test:e2e:ui": "playwright test --ui"
+    "postinstall": "patch-package"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -69,7 +63,6 @@
     "sharp": "^0.34.5",
     "socket.io": "^4.8.3",
     "socket.io-client": "^4.8.3",
-    "socks-proxy-agent": "^10.0.0",
     "sonner": "^2.0.7",
     "systeminformation": "^5.31.1",
     "tailwind-merge": "^3.4.0",
@@ -78,22 +71,16 @@
     "zod": "^4.3.5"
   },
   "devDependencies": {
-    "@playwright/test": "^1.60.0",
     "@tailwindcss/postcss": "^4",
-    "@testing-library/jest-dom": "^6.9.1",
-    "@testing-library/react": "^16.3.2",
-    "@testing-library/user-event": "^14.6.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19",
     "@types/swagger-ui-react": "^5.18.0",
-    "@vitejs/plugin-react": "^6.0.2",
     "code-inspector-plugin": "^1.5.1",
     "eslint": "^9",
     "eslint-config-next": "16.1.1",
-    "jsdom": "^29.1.1",
     "next-swagger-doc": "^0.4.1",
     "patch-package": "^8.0.1",
     "postinstall-postinstall": "^2.1.0",
@@ -101,8 +88,7 @@
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3",
-    "vitest": "^4.1.7"
+    "typescript": "^5.9.3"
   },
   "overrides": {
     "wa-sticker-formatter": {
