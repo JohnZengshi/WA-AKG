@@ -22,8 +22,14 @@ export async function PUT(
         const body = await request.json();
         const { name, url, secret, events, isActive } = body;
 
-        const session = await prisma.session.findUnique({
-            where: { sessionId: sessionId },
+        // Resolve sessionId (supports both WhatsApp string ID and internal CUID)
+        const session = await prisma.session.findFirst({
+            where: {
+                OR: [
+                    { id: sessionId },
+                    { sessionId: sessionId }
+                ]
+            },
             select: { id: true }
         });
 
@@ -82,8 +88,14 @@ export async function DELETE(
     }
 
     try {
-        const session = await prisma.session.findUnique({
-            where: { sessionId: sessionId },
+        // Resolve sessionId (supports both WhatsApp string ID and internal CUID)
+        const session = await prisma.session.findFirst({
+            where: {
+                OR: [
+                    { id: sessionId },
+                    { sessionId: sessionId }
+                ]
+            },
             select: { id: true }
         });
 
