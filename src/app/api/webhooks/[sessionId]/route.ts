@@ -22,8 +22,14 @@ export async function GET(
     try {
         // Resolve session string ID to internal ID if needed, or just look up webhooks
         // We need the internal ID to query the Webhook table
-        const session = await prisma.session.findUnique({
-            where: { sessionId: sessionId },
+        // Supports both WhatsApp string sessionId and internal CUID
+        const session = await prisma.session.findFirst({
+            where: {
+                OR: [
+                    { id: sessionId },
+                    { sessionId: sessionId }
+                ]
+            },
             select: { id: true }
         });
 
@@ -76,8 +82,14 @@ export async function POST(
             return NextResponse.json({ status: false, message: "Name, URL, and at least one event are required", error: "Name, URL, and at least one event are required" }, { status: 400 });
         }
 
-        const session = await prisma.session.findUnique({
-            where: { sessionId: sessionId },
+        // Supports both WhatsApp string sessionId and internal CUID
+        const session = await prisma.session.findFirst({
+            where: {
+                OR: [
+                    { id: sessionId },
+                    { sessionId: sessionId }
+                ]
+            },
             select: { id: true }
         });
 
