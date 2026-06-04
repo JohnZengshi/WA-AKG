@@ -59,8 +59,8 @@ export function SessionManager({ user }: { user: any }) {
             console.log('Socket connected');
         });
 
-        socketInstance.on('connection.update', (data: { sessionId: string, status: string, qr: string }) => {
-            // Update specific session status if match
+        socketInstance.on('connection.update', (data: { sessionId?: string, status: string, qr: string | null }) => {
+            if (!data.sessionId) return;
             setSessions(prev => prev.map(s => {
                 if (s.sessionId === data.sessionId) {
                     return { ...s, status: data.status, qr: data.qr };
@@ -69,14 +69,17 @@ export function SessionManager({ user }: { user: any }) {
             }));
 
             if (data.status === 'CONNECTED') {
-                fetchSessions(); // Refresh purely to get updated state from DB if needed
+                fetchSessions();
             }
         });
 
         setSocket(socketInstance);
 
+        const pollTimer = setInterval(fetchSessions, 15_000);
+
         return () => {
             socketInstance.disconnect();
+            clearInterval(pollTimer);
         };
     }, []);
 
