@@ -148,7 +148,7 @@ export class WhatsAppManager {
         this.io?.to(sessionId).emit("connection.update", { status: "STOPPED", qr: null, sessionId });
         await prisma.session.update({
                 where: { sessionId },
-                data: { status: "STOPPED" }
+                data: { status: "STOPPED", qr: null }
             });
         }
     }
@@ -180,8 +180,12 @@ export class WhatsAppManager {
         // Sync DB from stale STOPPED (set by stopSession) to current instance state
         await prisma.session.update({
             where: { sessionId },
-            data: { status: instance.status }
-        }).catch(() => {});
+            data: { status: instance.status, qr: instance.qr }
+        }).catch((e: any) => {
+            if (e.code !== 'P2025') {
+                logger.error("Manager", `Failed to sync session DB after start:`, e);
+            }
+        });
 
         this.io?.to(sessionId).emit("connection.update", {
             status: instance.status,

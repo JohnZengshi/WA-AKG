@@ -322,7 +322,8 @@ export class WhatsAppInstance {
             this.io?.to(this.sessionId).emit("connection.update", {
                 status: this.status,
                 qr: this.qr,
-                pairingCode: code
+                pairingCode: code,
+                sessionId: this.sessionId,
             });
 
             return code;
