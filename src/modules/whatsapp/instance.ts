@@ -186,7 +186,7 @@ export class WhatsAppInstance {
                 this.status = "SCAN_QR";
 
                 // Emit QR to Socket Room
-                this.io?.to(this.sessionId).emit("connection.update", { status: this.status, qr });
+                this.io?.to(this.sessionId).emit("connection.update", { status: this.status, qr, sessionId: this.sessionId });
 
                 // Update DB
                 await prisma.session.update({
@@ -211,7 +211,7 @@ export class WhatsAppInstance {
                     this.status = "DISCONNECTED";
                 }
 
-                this.io?.to(this.sessionId).emit("connection.update", { status: this.status, qr: null });
+                this.io?.to(this.sessionId).emit("connection.update", { status: this.status, qr: null, sessionId: this.sessionId });
 
                 // Use try-catch specifically for update as session might be deleted
                 try {
@@ -264,7 +264,7 @@ export class WhatsAppInstance {
                 this.startTime = new Date();
                 this.reconnectAttempts = 0; // Reset reconnect counter on successful connection
 
-                this.io?.to(this.sessionId).emit("connection.update", { status: this.status, qr: null });
+                this.io?.to(this.sessionId).emit("connection.update", { status: this.status, qr: null, sessionId: this.sessionId });
 
                 // Sync Groups from WhatsApp (with error handling)
                 try {
@@ -273,11 +273,17 @@ export class WhatsAppInstance {
                     logger.error("Instance", "Group sync failed:", e);
                 }
 
-                // Bind Auto Reply
-                bindAutoReply(this.socket as WASocket, this.sessionId);
+                try {
+                    bindAutoReply(this.socket as WASocket, this.sessionId);
+                } catch (e) {
+                    logger.error("Instance", "Auto-reply bind failed:", e);
+                }
 
-                // Bind PP Guard
-                bindPpGuard(this.socket as WASocket, this.sessionId);
+                try {
+                    bindPpGuard(this.socket as WASocket, this.sessionId);
+                } catch (e) {
+                    logger.error("Instance", "PP guard bind failed:", e);
+                }
 
                 await prisma.session.update({
                     where: { sessionId: this.sessionId },
