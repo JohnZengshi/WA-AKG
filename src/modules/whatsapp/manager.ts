@@ -139,12 +139,16 @@ export class WhatsAppManager {
         const instance = this.sessions.get(sessionId);
         if (instance) {
             instance.isStopped = true; // Prevent auto-reconnect
+            if (instance.socket) {
+                instance.socket.ev.removeAllListeners("connection.update");
+                instance.socket.ev.removeAllListeners("creds.update");
+            }
             instance.socket?.end(undefined);
             instance.status = "STOPPED";
-            this.io?.to(sessionId).emit("connection.update", { status: "STOPPED", qr: null });
-            await prisma.session.update({
+        this.io?.to(sessionId).emit("connection.update", { status: "STOPPED", qr: null, sessionId });
+        await prisma.session.update({
                 where: { sessionId },
-                data: { status: "STOPPED" }
+                data: { status: "STOPPED", qr: null }
             });
         }
     }
@@ -159,14 +163,35 @@ export class WhatsAppManager {
         const session = await prisma.session.findUnique({ where: { sessionId } });
         if (!session) throw new Error("Session not found");
 
-        // Re-initialize
-        let instance = this.sessions.get(sessionId);
-        if (!instance) {
-            instance = new WhatsAppInstance(sessionId, session.userId, this.io!);
-            this.sessions.set(sessionId, instance);
+        const oldInstance = this.sessions.get(sessionId);
+        if (oldInstance) {
+            oldInstance.isStopped = true;
+            if (oldInstance.socket) {
+                oldInstance.socket.ev.removeAllListeners("connection.update");
+                oldInstance.socket.ev.removeAllListeners("creds.update");
+                oldInstance.socket.end(undefined);
+            }
         }
 
+        const instance = new WhatsAppInstance(sessionId, session.userId, this.io!);
+        this.sessions.set(sessionId, instance);
         await instance.init();
+
+        // Sync DB from stale STOPPED (set by stopSession) to current instance state
+        await prisma.session.update({
+            where: { sessionId },
+            data: { status: instance.status, qr: instance.qr }
+        }).catch((e: any) => {
+            if (e.code !== 'P2025') {
+                logger.error("Manager", `Failed to sync session DB after start:`, e);
+            }
+        });
+
+        this.io?.to(sessionId).emit("connection.update", {
+            status: instance.status,
+            qr: instance.qr,
+            sessionId
+        });
     }
 
     async restartSession(sessionId: string) {

@@ -9,7 +9,7 @@
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
-
+.machine-id
 # testing
 /coverage
 test-results/
@@ -63,3 +63,4 @@ server.log
 .sisyphus/
 
 .playwright-mcp/
+.machine-id
