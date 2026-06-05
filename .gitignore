@@ -63,3 +63,4 @@ server.log
 .sisyphus/
 
 .playwright-mcp/
+.machine-id
