@@ -6,21 +6,17 @@ RUN apt-get update -qq && apt-get install -y -qq --no-install-recommends \
     openssl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY package*.json ./
-COPY patches ./patches/
+COPY package*.json pnpm-lock.yaml* ./
 COPY prisma ./prisma/
-RUN --mount=type=cache,target=/root/.npm \
-    npm config set registry https://registry.npmmirror.com && \
-    npm ci --no-audit --no-fund --prefer-offline
+RUN npm install -g pnpm && \
+    pnpm install --frozen-lockfile --registry https://registry.npmmirror.com
 
 # Copy the rest of the application files
 COPY . .
 
 # Generate Prisma client and build Next.js application
-RUN --mount=type=cache,target=/root/.npm \
-    npx prisma generate
-RUN --mount=type=cache,target=/root/.npm \
-    npm run build
+RUN npx prisma generate
+RUN npm run build
 
 # Production image
 FROM node:20-bookworm-slim AS runner

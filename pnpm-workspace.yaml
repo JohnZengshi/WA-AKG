@@ -13,3 +13,9 @@ allowBuilds:
   tree-sitter: false
   tree-sitter-json: false
   unrs-resolver: true
+
+overrides:
+  sharp: ^0.34.5
+  whatsapp-rust-bridge: 0.5.5
+
+

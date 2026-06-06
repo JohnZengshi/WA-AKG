@@ -14,7 +14,7 @@
     "dev:app": "node scripts/dev-app.mjs",
     "dev:stop": "node scripts/dev-stop.mjs",
     "dev:remote": "DATABASE_URL=postgresql://postgres:postgres@10.0.0.228:5432/wa_gateway_db?schema=public npx tsx src/server/index.ts",
-    "dev:remote:win": "set \"DATABASE_URL=postgresql://postgres:postgres@10.0.0.228:5432/wa_gateway_db?schema=public\" && npx tsx src/server/index.ts",
+    "dev:remote:win": "set \"DATABASE_URL=postgresql://postgres:postgres@10.0.0.228:5432/wa_gateway_db?schema=public\" && tsx src/server/index.ts",
     "postinstall": "patch-package",
     "test": "vitest",
     "test:ui": "vitest --ui",
