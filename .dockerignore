@@ -37,8 +37,7 @@ yarn-debug.log*
 next-env.d.ts
 
 # project data
-data/media
-data/mysql
+data
 
 # markdown (except docs/ which the app loads at runtime)
 *.md
