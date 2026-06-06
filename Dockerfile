@@ -6,7 +6,7 @@ RUN apt-get update -qq && apt-get install -y -qq --no-install-recommends \
     openssl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY package*.json pnpm-lock.yaml* ./
+COPY package*.json pnpm-lock.yaml* pnpm-workspace.yaml* ./
 COPY prisma ./prisma/
 RUN npm install -g pnpm && \
     pnpm install --frozen-lockfile --registry https://registry.npmmirror.com
