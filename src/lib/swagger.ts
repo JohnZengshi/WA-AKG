@@ -459,12 +459,14 @@ All endpoints require authentication via:
                                         required: ["name"],
                                         properties: {
                                             name: { type: "string", example: "Sales Bot", description: "Display name for the session" },
-                                            sessionId: { type: "string", example: "sales-01", description: "Unique session ID (auto-generated if not provided)" }
+                                            sessionId: { type: "string", example: "sales-01", description: "Unique session ID (auto-generated if not provided)" },
+                                            proxyUrl: { type: "string", example: "http://127.0.0.1:7890", description: "Optional SOCKS5/HTTP proxy URL for WhatsApp connection" }
                                         }
                                     },
                                     example: {
                                         name: "Marketing Bot",
-                                        sessionId: "marketing-1"
+                                        sessionId: "marketing-1",
+                                        proxyUrl: "http://127.0.0.1:7890"
                                     }
                                 }
                             }
@@ -676,7 +678,8 @@ All endpoints require authentication via:
                                                 type: "object",
                                                 properties: {
                                                     readReceipts: { type: "boolean" },
-                                                    rejectCalls: { type: "boolean" }
+                                                    rejectCalls: { type: "boolean" },
+                                                    proxyUrl: { type: "string", example: "http://127.0.0.1:7890", description: "SOCKS5/HTTP proxy URL for WhatsApp connection" }
                                                 }
                                             }
                                         }
