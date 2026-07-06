@@ -56,8 +56,9 @@ model Session {
   userId    String
   name      String // e.g. "Marketing WA"
   sessionId String   @unique // The unique ID used for Baileys auth
-  status    String   @default("DISCONNECTED") // CONNECTED, DISCONNECTED, ZOMBIE
+  status    String   @default("DISCONNECTED") // CONNECTED, DISCONNECTED, ZOMBIE, SCAN_QR, LOGGED_OUT, STOPPED, DUPLICATE_ACCOUNT
   qr        String?  @db.Text
+  waJid     String?  @unique // Connected WhatsApp account JID, normalized (e.g. 628123@s.whatsapp.net)
   config    Json? // Store instance specific config (e.g. "read_receipts": true)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
