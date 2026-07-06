@@ -33,6 +33,7 @@ type SessionDetail = {
     userId: string;
     uptime: number; // in seconds
     assignedTo?: string | null;
+    waJid?: string | null;
     me?: {
         id: string;
         name: string;
@@ -59,6 +60,8 @@ export default function SessionDetailPage() {
     const [proxyUrl, setProxyUrl] = useState("");
     const [browserFp, setBrowserFp] = useState<string>("");
     const [connSaving, setConnSaving] = useState(false);
+
+    const waJid = session?.me?.id ?? session?.waJid ?? null;
 
     const fetchConnectionConfig = async () => {
         try {
@@ -128,16 +131,21 @@ export default function SessionDetailPage() {
             socketInstance.emit("join-session", sessionId);
         });
 
-        socketInstance.on("connection.update", (data: { status: string, qr: string, pairingCode?: string }) => {
+        socketInstance.on("connection.update", (data: { status: string, qr: string | null, pairingCode?: string, error?: string }) => {
             console.log("Socket update:", data);
             setSession(prev => prev ? { ...prev, status: data.status } : null);
             setQrCode(data.qr || null);
             if (data.pairingCode) setPairingCode(data.pairingCode);
+            if (data.status === 'DUPLICATE_ACCOUNT') {
+                setPairingCode(null);
+                toast.error(data.error || "This WhatsApp account is already connected to another session");
+                fetchSession();
+            }
 
             // Re-fetch full details on major status change (like connection) to get 'me' info
             if (data.status === 'CONNECTED') {
-        fetchSession();
-        fetchConnectionConfig();
+                fetchSession();
+                fetchConnectionConfig();
             }
         });
 
@@ -285,6 +293,7 @@ export default function SessionDetailPage() {
                         <CardTitle className="flex items-center justify-between">
                             Session Status
                             <div className={`px-3 py-1 rounded-full text-xs font-bold ${session.status === 'CONNECTED' ? 'bg-green-100 text-green-700' :
+                                session.status === 'DUPLICATE_ACCOUNT' ? 'bg-red-100 text-red-700' :
                                 session.status === 'STOPPED' ? 'bg-red-100 text-red-700' :
                                     'bg-yellow-100 text-yellow-700'
                                 }`}>
@@ -303,6 +312,10 @@ export default function SessionDetailPage() {
                                 <span className="text-sm text-gray-500 block">Connected As</span>
                                 <span className="text-lg font-medium truncate">{session.me?.name || session.me?.id || "-"}</span>
                             </div>
+                        </div>
+                        <div className="p-4 bg-gray-50 rounded-lg">
+                            <span className="text-sm text-gray-500 block">WhatsApp JID</span>
+                            <span className="text-sm font-mono text-gray-700 break-all">{waJid || "-"}</span>
                         </div>
                         {session.assignedTo && (
                             <div className="p-4 bg-gray-50 rounded-lg">
@@ -400,14 +413,22 @@ export default function SessionDetailPage() {
                         <CardDescription>Manage the active session.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                        <Button
-                            variant="outline"
-                            className="w-full justify-start text-green-600 hover:text-green-700 hover:bg-green-50"
-                            onClick={() => performAction('start')}
-                            disabled={session.status === 'CONNECTED' || session.status === 'SCAN_QR'}
-                        >
-                            <Play className="mr-2 h-4 w-4" /> Start Session
-                        </Button>
+                        {session.status !== 'CONNECTED' && session.status !== 'DUPLICATE_ACCOUNT' && (
+                            <Button
+                                variant="outline"
+                                className="w-full justify-start text-green-600 hover:text-green-700 hover:bg-green-50"
+                                onClick={() => performAction('start')}
+                                disabled={session.status === 'SCAN_QR'}
+                            >
+                                <Play className="mr-2 h-4 w-4" /> Start Session
+                            </Button>
+                        )}
+
+                        {session.status === 'DUPLICATE_ACCOUNT' && (
+                            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                                This WhatsApp account is already bound to another session. Use the existing session or log it out first.
+                            </div>
+                        )}
 
                         <Button
                             variant="outline"

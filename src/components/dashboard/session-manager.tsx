@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { io, Socket } from 'socket.io-client';
 import QRCode from 'qrcode';
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from "sonner";
 import { Label } from '@/components/ui/label';
 import { useSession } from './session-provider';
-import { Plus, Trash2, Settings, UserPlus, Smartphone, CheckSquare, Square, X } from 'lucide-react';
+import { Plus, Trash2, Settings, UserPlus, Smartphone, CheckSquare, Square, X, Search } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
   AlertDialog,
@@ -29,6 +29,7 @@ type Session = {
     sessionId: string;
     status: string;
     qr?: string | null;
+    waJid?: string | null;
     assignedTo?: string | null;
 };
 
@@ -43,6 +44,7 @@ export function SessionManager({ user }: { user: any }) {
     const [selected, setSelected] = useState<string[]>([]);
     const [deleting, setDeleting] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [search, setSearch] = useState("");
     const { machineId } = useSession();
     const router = useRouter();
 
@@ -59,7 +61,7 @@ export function SessionManager({ user }: { user: any }) {
             console.log('Socket connected');
         });
 
-        socketInstance.on('connection.update', (data: { sessionId?: string, status: string, qr: string | null }) => {
+        socketInstance.on('connection.update', (data: { sessionId?: string, status: string, qr: string | null, error?: string }) => {
             if (!data.sessionId) return;
             setSessions(prev => prev.map(s => {
                 if (s.sessionId === data.sessionId) {
@@ -69,6 +71,10 @@ export function SessionManager({ user }: { user: any }) {
             }));
 
             if (data.status === 'CONNECTED') {
+                fetchSessions();
+            }
+            if (data.status === 'DUPLICATE_ACCOUNT') {
+                toast.error(data.error || "This WhatsApp account is already connected to another session");
                 fetchSessions();
             }
         });
@@ -92,6 +98,9 @@ export function SessionManager({ user }: { user: any }) {
             if (Array.isArray(data)) {
                 setSessions(data);
                 setSelected([]);
+                data.forEach((s: Session) => {
+                    socket?.emit("join-session", { sessionId: s.sessionId, supportDuplicateAccountStatus: true });
+                });
             }
         } catch {
             toast.error("Failed to fetch sessions");
@@ -99,6 +108,16 @@ export function SessionManager({ user }: { user: any }) {
             setRefreshing(false);
         }
     }
+
+    const filteredSessions = useMemo(() => {
+        const q = search.trim().toLowerCase();
+        if (!q) return sessions;
+        return sessions.filter(s =>
+            s.name.toLowerCase().includes(q) ||
+            s.sessionId.toLowerCase().includes(q) ||
+            (s.waJid ?? "").toLowerCase().includes(q)
+        );
+    }, [sessions, search]);
 
     const createSession = async () => {
         if (!newSessionName) {
@@ -264,12 +283,22 @@ export function SessionManager({ user }: { user: any }) {
             {/* Sessions Grid */}
             <div>
                 <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-xl font-semibold text-slate-800">Active Sessions ({sessions.length})</h2>
+                    <h2 className="text-xl font-semibold text-slate-800">Active Sessions ({filteredSessions.length})</h2>
                     {sessions.length > 0 && (
                         <Button variant="outline" size="sm" onClick={selectAll}>
                             {selected.length > 0 && selected.length === (user?.role === "SUPERADMIN" || user?.role === "OWNER" ? sessions.length : sessions.filter(s => isSessionOwned(s)).length) ? 'Deselect All' : 'Select All'}
                         </Button>
                     )}
+                </div>
+
+                <div className="relative mb-4">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder="Search by name, session ID, or WhatsApp JID"
+                        className="pl-9"
+                    />
                 </div>
 
                 {selected.length > 0 && (
@@ -290,13 +319,17 @@ export function SessionManager({ user }: { user: any }) {
                     </div>
                 )}
 
-                {sessions.length === 0 ? (
+                        {sessions.length === 0 ? (
                     <div className="text-center py-10 text-muted-foreground bg-slate-50 rounded-lg border">
                         No sessions found. Create one above to get started.
                     </div>
+                ) : filteredSessions.length === 0 ? (
+                    <div className="text-center py-10 text-muted-foreground bg-slate-50 rounded-lg border">
+                        No sessions match your search.
+                    </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {sessions.map(session => {
+                        {filteredSessions.map(session => {
                             const isSelected = selected.includes(session.sessionId);
                             const notOwned = !isSessionOwned(session);
                             const isAdmin = user?.role === "SUPERADMIN" || user?.role === "OWNER";
@@ -324,6 +357,11 @@ export function SessionManager({ user }: { user: any }) {
                                     </CardHeader>
                                     <CardContent>
                                         <div className={`text-2xl font-bold truncate mb-2 ${!canSelect ? 'text-muted-foreground' : ''}`}>{session.sessionId}</div>
+                                        {session.waJid && (
+                                            <p className={`text-xs font-mono truncate mb-2 ${!canSelect ? 'text-muted-foreground' : 'text-primary/70'}`}>
+                                                {session.waJid}
+                                            </p>
+                                        )}
                                         {session.assignedTo && (
                                             <p className={`text-[10px] font-mono truncate mb-2 ${!canSelect ? 'text-red-400' : 'text-muted-foreground/60'}`}>
                                                 Machine: {session.assignedTo.substring(0, 8)}...
@@ -331,7 +369,7 @@ export function SessionManager({ user }: { user: any }) {
                                         )}
                                         <div className="flex items-center gap-2 flex-wrap">
                                             <Badge data-testid="status-badge" variant={session.status === 'CONNECTED' ? 'default' : 'secondary'}
-                                                className={session.status === 'CONNECTED' ? 'bg-green-500 hover:bg-green-600' : ''}>
+                                                className={session.status === 'CONNECTED' ? 'bg-green-500 hover:bg-green-600' : session.status === 'DUPLICATE_ACCOUNT' ? 'bg-red-500 hover:bg-red-600 text-white' : ''}>
                                                 {session.status}
                                             </Badge>
                                             {notOwned && !isAdmin && (

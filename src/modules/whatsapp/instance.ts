@@ -18,6 +18,7 @@ import { antispam } from "./antispam";
 import { logger } from "@/lib/logger";
 import { getOrCreateFingerprint, buildBrowserDescription, validateFingerprint } from "@/lib/browser-fingerprint";
 import { createProxyAgent } from "@/lib/proxy-agent";
+import { roomSupportsDuplicateStatus } from "@/server/socket";
 
 export class WhatsAppInstance {
     socket: WASocket | null = null;
@@ -39,6 +40,7 @@ export class WhatsAppInstance {
     private initLock: boolean = false;
     private readonly MAX_RECONNECT_DELAY = 30000; // 30s cap
     private readonly INITIAL_RECONNECT_DELAY = 2000; // 2s first retry
+    private restartAfterDuplicateLogout: boolean = false;
 
     get isInitializing(): boolean {
         return this.initLock;
@@ -196,8 +198,21 @@ export class WhatsAppInstance {
             }
 
             if (connection === "close") {
+                if (this.status === "DUPLICATE_ACCOUNT") {
+                    this.socket = null;
+                    return;
+                }
+
                 const code = (lastDisconnect?.error as any)?.output?.statusCode;
                 const isLoggedOut = code === DisconnectReason.loggedOut;
+
+                if (this.restartAfterDuplicateLogout) {
+                    this.restartAfterDuplicateLogout = false;
+                    this.socket = null;
+                    this.initLock = false;
+                    this.reconnectTimer = setTimeout(() => this.init(), 1000);
+                    return;
+                }
 
                 // Only reconnect if NOT logged out AND NOT explicitly stopped
                 const shouldReconnect = !isLoggedOut && !this.isStopped;
@@ -240,7 +255,7 @@ export class WhatsAppInstance {
                         await prisma.$transaction([
                             prisma.session.update({
                                 where: { sessionId: this.sessionId },
-                                data: { status: "LOGGED_OUT", qr: null }
+                                data: { status: "LOGGED_OUT", qr: null, waJid: null }
                             }),
                             prisma.authState.deleteMany({
                                 where: { sessionId: this.sessionId }
@@ -259,6 +274,76 @@ export class WhatsAppInstance {
 
 
             if (connection === "open") {
+                const rawJid = this.socket?.user?.id || "";
+                const waJid = rawJid.replace(/:\d+@/, "@") || null;
+
+                // --- duplicate WhatsApp account check ---
+                if (waJid) {
+                    const duplicate = await prisma.session.findFirst({
+                        where: { waJid, sessionId: { not: this.sessionId } },
+                        select: { sessionId: true },
+                    });
+                    if (duplicate) {
+                        logger.warn("Instance", `Session ${this.sessionId} is a duplicate of WhatsApp account ${waJid} (already bound to ${duplicate.sessionId}). Rejecting.`);
+
+                        if (roomSupportsDuplicateStatus(this.io, this.sessionId)) {
+                            this.status = "DUPLICATE_ACCOUNT";
+                            this.qr = null;
+                            this.isStopped = true;
+
+                            this.io?.to(this.sessionId).emit("connection.update", {
+                                status: "DUPLICATE_ACCOUNT",
+                                qr: null,
+                                sessionId: this.sessionId,
+                                error: "This WhatsApp account is already connected to another session",
+                                duplicateSessionId: duplicate.sessionId,
+                            });
+
+                            try {
+                                await prisma.$transaction([
+                                    prisma.session.update({
+                                        where: { sessionId: this.sessionId },
+                                        data: { status: "DUPLICATE_ACCOUNT", qr: null },
+                                    }),
+                                    prisma.authState.deleteMany({
+                                        where: { sessionId: this.sessionId },
+                                    }),
+                                ]);
+                            } catch (e: any) {
+                                if (e.code === "P2025") { /* session deleted concurrently */ }
+                            }
+
+                            try { await this.socket?.logout(); } catch (e) {
+                                logger.warn("Instance", `Session ${this.sessionId} logout failed during duplicate rejection:`, e);
+                            }
+                            return;
+                        }
+
+                        // Legacy client: restart session so user can scan a different account
+                        logger.info("Instance", `Session ${this.sessionId} legacy client. Restarting for re-scan.`);
+                        try {
+                            await prisma.$transaction([
+                                prisma.session.update({
+                                    where: { sessionId: this.sessionId },
+                                    data: { status: "DISCONNECTED", qr: null },
+                                }),
+                                prisma.authState.deleteMany({
+                                    where: { sessionId: this.sessionId },
+                                }),
+                            ]);
+                        } catch (e: any) {
+                            if (e.code === "P2025") { /* session deleted concurrently */ }
+                        }
+                        this.status = "DISCONNECTED";
+                        this.restartAfterDuplicateLogout = true;
+                        try { await this.socket?.logout(); } catch (e) {
+                            logger.warn("Instance", `Session ${this.sessionId} logout failed during duplicate restart:`, e);
+                        }
+                        return;
+                    }
+                }
+                // --- end duplicate check ---
+
                 this.status = "CONNECTED";
                 this.qr = null;
                 this.startTime = new Date();
@@ -285,10 +370,57 @@ export class WhatsAppInstance {
                     logger.error("Instance", "PP guard bind failed:", e);
                 }
 
-                await prisma.session.update({
-                    where: { sessionId: this.sessionId },
-                    data: { status: "CONNECTED", qr: null }
-                });
+                try {
+                    await prisma.session.update({
+                        where: { sessionId: this.sessionId },
+                        data: { status: "CONNECTED", qr: null, waJid }
+                    });
+                } catch (e: any) {
+                    if (e.code === "P2002") {
+                        // Race: another session claimed this waJid first
+                        logger.warn("Instance", `Session ${this.sessionId} lost waJid race for ${waJid}. Rejecting.`);
+
+                        if (roomSupportsDuplicateStatus(this.io, this.sessionId)) {
+                            this.status = "DUPLICATE_ACCOUNT";
+                            this.qr = null;
+                            this.isStopped = true;
+                            this.io?.to(this.sessionId).emit("connection.update", {
+                                status: "DUPLICATE_ACCOUNT",
+                                qr: null,
+                                sessionId: this.sessionId,
+                                error: "This WhatsApp account is already connected to another session",
+                            });
+                            await prisma.session.update({
+                                where: { sessionId: this.sessionId },
+                                data: { status: "DUPLICATE_ACCOUNT", qr: null },
+                            }).catch(() => {});
+                            await prisma.authState.deleteMany({
+                                where: { sessionId: this.sessionId },
+                            }).catch(() => {});
+                            try { await this.socket?.logout(); } catch (e) {
+                                logger.warn("Instance", `Session ${this.sessionId} logout failed during duplicate race rejection:`, e);
+                            }
+                            return;
+                        }
+
+                        // Legacy client: restart
+                        logger.info("Instance", `Session ${this.sessionId} legacy client (race). Restarting for re-scan.`);
+                        await prisma.session.update({
+                            where: { sessionId: this.sessionId },
+                            data: { status: "DISCONNECTED", qr: null },
+                        }).catch(() => {});
+                        await prisma.authState.deleteMany({
+                            where: { sessionId: this.sessionId },
+                        }).catch(() => {});
+                        this.status = "DISCONNECTED";
+                        this.restartAfterDuplicateLogout = true;
+                        try { await this.socket?.logout(); } catch (e) {
+                            logger.warn("Instance", `Session ${this.sessionId} logout failed during duplicate race restart:`, e);
+                        }
+                        return;
+                    }
+                    throw e;
+                }
 
                 logger.success("Instance", `Session ${this.sessionId} connected and synced successfully`);
             }

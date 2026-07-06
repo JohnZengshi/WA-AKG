@@ -3,7 +3,7 @@
   "info": {
     "title": "WA-AKG API Documentation",
     "version": "1.2.0",
-    "description": "\n# WhatsApp AI Gateway - Complete API Reference\n\nProfessional WhatsApp Gateway with **64 API endpoints** for complete WhatsApp automation.\n\n## 🔐 Authentication\nAll endpoints require authentication via:\n1. **API Key Header**: `X-API-Key: your-api-key`\n2. **Session Cookie**: `next-auth.session-token` (automatically sent by browser)\n\n## 📋 Common Parameters\n- **sessionId**: Unique session identifier (e.g., \"mysession-01\")\n- **jid**: WhatsApp JID format:\n  - Personal: `628123456789@s.whatsapp.net`\n  - Group: `120363123456789@g.us`\n\n## 📊 Rate Limits\n- Phone check: Max 50 numbers per request\n- Broadcast: 10-20s random delay between messages\n- Message history: Max 100 messages\n                "
+    "description": "\n# WhatsApp AI Gateway - Complete API Reference\n\nProfessional WhatsApp Gateway with **64 API endpoints** for complete WhatsApp automation.\n\n## 🔐 Authentication\nAll endpoints require authentication via:\n1. **API Key Header**: `X-API-Key: your-api-key`\n2. **Session Cookie**: `next-auth.session-token` (automatically sent by browser)\n\n## 📋 Common Parameters\n- **sessionId**: Unique session identifier (e.g., \"mysession-01\")\n- **jid**: WhatsApp JID format:\n  - Personal: `628123456789@s.whatsapp.net`\n  - Group: `120363123456789@g.us`\n\n## 📊 Rate Limits\n- Phone check: Max 50 numbers per request\n- Broadcast: 10-20s random delay between messages\n- Message history: Max 100 messages\n\n## 🔌 Socket.IO Events (Real-time)\nWA-AKG uses Socket.IO at `/api/socket/io` for real-time connection updates.\n\n### Join Session\n```js\n// Legacy (no duplicate account status)\nsocket.emit(\"join-session\", \"sales-01\");\n// or: socket.emit(\"join-session\", { sessionId: \"sales-01\" });\n\n// Opt-in (receives DUPLICATE_ACCOUNT status)\nsocket.emit(\"join-session\", { sessionId: \"sales-01\", supportDuplicateAccountStatus: true });\n```\n\n| Parameter | Type | Required | Description |\n|---|---|---|---|\n| `sessionId` | string | ✅ | Session identifier |\n| `supportDuplicateAccountStatus` | boolean | ❌ (default: false) | Opt into `DUPLICATE_ACCOUNT` status |\n\n### connection.update Event\nEmitted when session status changes.\n\n| Field | Type | Description |\n|---|---|---|\n| `sessionId` | string | Session identifier |\n| `status` | string | One of: `DISCONNECTED`, `SCAN_QR`, `CONNECTED`, `STOPPED`, `LOGGED_OUT`, `DUPLICATE_ACCOUNT` |\n| `qr` | string \\| null | QR code raw string (only when `SCAN_QR`) |\n| `pairingCode` | string | Pairing code (optional, when using phone number pairing) |\n| `error` | string | Error message (only when `DUPLICATE_ACCOUNT`) |\n| `duplicateSessionId` | string | Conflicting session ID (only when `DUPLICATE_ACCOUNT`) |\n\n### Duplicate Account Behavior\n- **Legacy clients** (without `supportDuplicateAccountStatus`): backend still detects duplicate WhatsApp binding. The duplicate session is logged out and restarted automatically so the client can scan a new QR code. No `DUPLICATE_ACCOUNT` status is emitted.\n- **Opt-in clients** (with `supportDuplicateAccountStatus: true`): backend emits `connection.update` with `status: \"DUPLICATE_ACCOUNT\"`, `qr: null`, `error`, and `duplicateSessionId`. The duplicate session is stopped; the original session remains connected."
   },
   "servers": [
     {
@@ -79,11 +79,20 @@
           "status": {
             "type": "string",
             "enum": [
-              "Connected",
-              "Disconnected",
-              "Connecting"
+              "DISCONNECTED",
+              "SCAN_QR",
+              "CONNECTED",
+              "STOPPED",
+              "LOGGED_OUT",
+              "DUPLICATE_ACCOUNT"
             ],
-            "example": "Connected"
+            "example": "CONNECTED"
+          },
+          "waJid": {
+            "type": "string",
+            "nullable": true,
+            "example": "628123456789@s.whatsapp.net",
+            "description": "Connected WhatsApp account JID. Unique when present. Duplicate binding attempts are rejected after scan with DUPLICATE_ACCOUNT status."
           },
           "userId": {
             "type": "string"
@@ -403,6 +412,139 @@
     }
   ],
   "paths": {
+    "/media/{filename}": {
+      "get": {
+        "tags": [
+          "Media"
+        ],
+        "summary": "Get uploaded media file",
+        "parameters": [
+          {
+            "name": "filename",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "File data"
+          }
+        }
+      }
+    },
+    "/groups/{sessionId}/{jid}/leave": {
+      "post": {
+        "tags": [
+          "Groups"
+        ],
+        "summary": "Leave a group",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "jid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Left the group successfully"
+          }
+        }
+      }
+    },
+    "/docs": {
+      "get": {
+        "tags": [
+          "Documentation"
+        ],
+        "summary": "Get Swagger JSON specification",
+        "responses": {
+          "200": {
+            "description": "Swagger JSON spec"
+          }
+        }
+      }
+    },
+    "/chats/by-label/{labelId}": {
+      "get": {
+        "tags": [
+          "Chats"
+        ],
+        "summary": "Get chats by label ID",
+        "parameters": [
+          {
+            "name": "labelId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of chats with the label"
+          }
+        }
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "tags": [
+          "Web Authentication"
+        ],
+        "summary": "Register a new user",
+        "description": "Register a user via web.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "email",
+                  "password"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "example": "John Doe"
+                  },
+                  "email": {
+                    "type": "string",
+                    "example": "john@example.com"
+                  },
+                  "password": {
+                    "type": "string",
+                    "example": "password123"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User registered"
+          }
+        }
+      }
+    },
     "/auth/session": {
       "get": {
         "tags": [
@@ -520,12 +662,18 @@
                     "type": "string",
                     "example": "sales-01",
                     "description": "Unique session ID (auto-generated if not provided)"
+                  },
+                  "proxyUrl": {
+                    "type": "string",
+                    "example": "http://127.0.0.1:7890",
+                    "description": "Optional SOCKS5/HTTP proxy URL for WhatsApp connection"
                   }
                 }
               },
               "example": {
                 "name": "Marketing Bot",
-                "sessionId": "marketing-1"
+                "sessionId": "marketing-1",
+                "proxyUrl": "http://127.0.0.1:7890"
               }
             }
           }
@@ -962,6 +1110,11 @@
                       },
                       "rejectCalls": {
                         "type": "boolean"
+                      },
+                      "proxyUrl": {
+                        "type": "string",
+                        "example": "http://127.0.0.1:7890",
+                        "description": "SOCKS5/HTTP proxy URL for WhatsApp connection"
                       }
                     }
                   }
@@ -1002,6 +1155,271 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/sessions/{sessionId}/access": {
+      "get": {
+        "tags": [
+          "Session Access"
+        ],
+        "summary": "List users with shared access",
+        "description": "Get all users who have been granted access to the specified session. Only the session owner or SUPERADMIN can use this endpoint.",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Session ID (slug or CUID)",
+            "example": "marketing-1"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Access list retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Access list retrieved successfully"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "sessionId": {
+                            "type": "string"
+                          },
+                          "userId": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "user": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "email": {
+                                "type": "string"
+                              },
+                              "role": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden - Only session owner can manage access"
+          },
+          "404": {
+            "description": "Session not found"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Session Access"
+        ],
+        "summary": "Grant access to another user",
+        "description": "Grant session access to another registered user by email. Only the session owner or SUPERADMIN can use this endpoint. Cannot grant access to the session owner or SUPERADMINs.",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Session ID (slug or CUID)",
+            "example": "marketing-1"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "email"
+                ],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "description": "Email of the user to grant access",
+                    "example": "staff@example.com"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Access granted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Access granted to staff@example.com"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "sessionId": {
+                          "type": "string"
+                        },
+                        "userId": {
+                          "type": "string"
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "user": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "email": {
+                              "type": "string"
+                            },
+                            "role": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error / Cannot grant to owner / SUPERADMIN already has access"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden - Only session owner can manage access"
+          },
+          "404": {
+            "description": "Session or user not found"
+          },
+          "409": {
+            "description": "User already has access to this session"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Session Access"
+        ],
+        "summary": "Revoke user access",
+        "description": "Remove shared access for a user from the specified session. Only the session owner or SUPERADMIN can use this endpoint.",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Session ID (slug or CUID)",
+            "example": "marketing-1"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string",
+                    "description": "CUID of the user to revoke access from",
+                    "example": "clx456ghi"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Access revoked successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden - Only session owner can manage access"
+          },
+          "404": {
+            "description": "Session or access record not found"
           }
         }
       }
@@ -5275,63 +5693,6 @@
       }
     },
     "/groups/{sessionId}/{jid}/invite": {
-      "get": {
-        "tags": [
-          "Groups"
-        ],
-        "summary": "Get invite code",
-        "parameters": [
-          {
-            "name": "sessionId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "jid",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Invite code",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "inviteCode": {
-                      "type": "string"
-                    },
-                    "inviteUrl": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          },
-          "500": {
-            "description": "Failed to get code"
-          }
-        }
-      },
       "put": {
         "tags": [
           "Groups"
@@ -5389,6 +5750,63 @@
           },
           "500": {
             "description": "Failed to revoke code"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Groups"
+        ],
+        "summary": "Get invite code",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "jid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Invite code",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "inviteCode": {
+                      "type": "string"
+                    },
+                    "inviteUrl": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "description": "Failed to get code"
           }
         }
       }
@@ -5815,6 +6233,43 @@
       }
     },
     "/profile/{sessionId}/picture": {
+      "delete": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Remove profile picture",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Picture removed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "503": {
+            "$ref": "#/components/responses/SessionNotReady"
+          }
+        }
+      },
       "put": {
         "tags": [
           "Profile"
@@ -5852,43 +6307,6 @@
         "responses": {
           "200": {
             "description": "Picture updated",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Success"
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          },
-          "503": {
-            "$ref": "#/components/responses/SessionNotReady"
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "Profile"
-        ],
-        "summary": "Remove profile picture",
-        "parameters": [
-          {
-            "name": "sessionId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Picture removed",
             "content": {
               "application/json": {
                 "schema": {
@@ -6069,6 +6487,27 @@
       }
     },
     "/autoreplies/{sessionId}": {
+      "delete": {
+        "tags": [
+          "Auto Replies"
+        ],
+        "summary": "Delete all autoreplies",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Autoreplies deleted"
+          }
+        }
+      },
       "get": {
         "tags": [
           "Auto Reply"
@@ -6182,6 +6621,44 @@
       }
     },
     "/autoreplies/{sessionId}/{replyId}": {
+      "delete": {
+        "tags": [
+          "Auto Reply"
+        ],
+        "summary": "Delete auto-reply rule",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "replyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Rule deleted"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Rule not found"
+          }
+        }
+      },
       "put": {
         "tags": [
           "Auto Reply"
@@ -6250,44 +6727,6 @@
         "responses": {
           "200": {
             "description": "Rule updated"
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          },
-          "404": {
-            "description": "Rule not found"
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "Auto Reply"
-        ],
-        "summary": "Delete auto-reply rule",
-        "parameters": [
-          {
-            "name": "sessionId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "replyId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Rule deleted"
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
@@ -6472,6 +6911,27 @@
       }
     },
     "/scheduler/{sessionId}": {
+      "delete": {
+        "tags": [
+          "Scheduler"
+        ],
+        "summary": "Delete all scheduled messages for a session",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Scheduled messages deleted"
+          }
+        }
+      },
       "get": {
         "tags": [
           "Scheduler"
@@ -6578,6 +7038,44 @@
       }
     },
     "/scheduler/{sessionId}/{scheduleId}": {
+      "delete": {
+        "tags": [
+          "Scheduler"
+        ],
+        "summary": "Delete scheduled message",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "scheduleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Message deleted"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Message not found"
+          }
+        }
+      },
       "put": {
         "tags": [
           "Scheduler"
@@ -6659,92 +7157,9 @@
             "description": "Message not found"
           }
         }
-      },
-      "delete": {
-        "tags": [
-          "Scheduler"
-        ],
-        "summary": "Delete scheduled message",
-        "parameters": [
-          {
-            "name": "sessionId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "scheduleId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Message deleted"
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          },
-          "404": {
-            "description": "Message not found"
-          }
-        }
       }
     },
     "/scheduler": {
-      "get": {
-        "tags": [
-          "Scheduler"
-        ],
-        "summary": "List scheduled messages (DEPRECATED)",
-        "description": "**DEPRECATED:** Use GET /scheduler/{sessionId} instead.",
-        "deprecated": true,
-        "parameters": [
-          {
-            "name": "sessionId",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "List of scheduled messages",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ScheduledMessage"
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          },
-          "404": {
-            "description": "Session not found"
-          },
-          "500": {
-            "description": "Internal Server Error"
-          }
-        }
-      },
       "post": {
         "tags": [
           "Scheduler"
@@ -6800,6 +7215,51 @@
           },
           "400": {
             "description": "Missing required fields"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Session not found"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Scheduler"
+        ],
+        "summary": "List scheduled messages (DEPRECATED)",
+        "description": "**DEPRECATED:** Use GET /scheduler/{sessionId} instead.",
+        "deprecated": true,
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of scheduled messages",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ScheduledMessage"
+                  }
+                }
+              }
+            }
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
@@ -6951,6 +7411,44 @@
       }
     },
     "/webhooks/{sessionId}/{id}": {
+      "delete": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Delete webhook",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Webhook deleted"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Webhook not found"
+          }
+        }
+      },
       "put": {
         "tags": [
           "Webhooks"
@@ -7006,44 +7504,6 @@
         "responses": {
           "200": {
             "description": "Webhook updated"
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          },
-          "404": {
-            "description": "Webhook not found"
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "Webhooks"
-        ],
-        "summary": "Delete webhook",
-        "parameters": [
-          {
-            "name": "sessionId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Webhook deleted"
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
@@ -7236,62 +7696,6 @@
       }
     },
     "/users": {
-      "get": {
-        "tags": [
-          "Users"
-        ],
-        "summary": "List users (SUPERADMIN only)",
-        "responses": {
-          "200": {
-            "description": "List of users",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "id": {
-                        "type": "string"
-                      },
-                      "name": {
-                        "type": "string"
-                      },
-                      "email": {
-                        "type": "string"
-                      },
-                      "role": {
-                        "type": "string"
-                      },
-                      "createdAt": {
-                        "type": "string",
-                        "format": "date-time"
-                      },
-                      "_count": {
-                        "type": "object",
-                        "properties": {
-                          "sessions": {
-                            "type": "integer"
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          },
-          "500": {
-            "$ref": "#/components/responses/ServerError"
-          }
-        }
-      },
       "post": {
         "tags": [
           "Users"
@@ -7376,9 +7780,113 @@
             "$ref": "#/components/responses/ServerError"
           }
         }
+      },
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "List users (SUPERADMIN only)",
+        "responses": {
+          "200": {
+            "description": "List of users",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "email": {
+                        "type": "string"
+                      },
+                      "role": {
+                        "type": "string"
+                      },
+                      "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "_count": {
+                        "type": "object",
+                        "properties": {
+                          "sessions": {
+                            "type": "integer"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
       }
     },
     "/users/{id}": {
+      "delete": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Delete user (SUPERADMIN only)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "User not found"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      },
       "patch": {
         "tags": [
           "Users"
@@ -7487,84 +7995,9 @@
             "$ref": "#/components/responses/ServerError"
           }
         }
-      },
-      "delete": {
-        "tags": [
-          "Users"
-        ],
-        "summary": "Delete user (SUPERADMIN only)",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "User deleted",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          },
-          "404": {
-            "description": "User not found"
-          },
-          "500": {
-            "$ref": "#/components/responses/ServerError"
-          }
-        }
       }
     },
     "/user/api-key": {
-      "get": {
-        "tags": [
-          "Users"
-        ],
-        "summary": "Get current API key",
-        "responses": {
-          "200": {
-            "description": "Current API key",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "apiKey": {
-                      "type": "string",
-                      "nullable": true
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          }
-        }
-      },
       "post": {
         "tags": [
           "Users"
@@ -7615,6 +8048,33 @@
           },
           "500": {
             "description": "Failed to revoke API key"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Get current API key",
+        "responses": {
+          "200": {
+            "description": "Current API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "apiKey": {
+                      "type": "string",
+                      "nullable": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
           }
         }
       }
@@ -7934,6 +8394,35 @@
       }
     },
     "/groups/{sessionId}/{jid}/picture": {
+      "delete": {
+        "tags": [
+          "Groups"
+        ],
+        "summary": "Remove group picture",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "jid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Picture removed"
+          }
+        }
+      },
       "put": {
         "tags": [
           "Groups"
@@ -7978,35 +8467,6 @@
         "responses": {
           "200": {
             "description": "Picture updated"
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "Groups"
-        ],
-        "summary": "Remove group picture",
-        "parameters": [
-          {
-            "name": "sessionId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "jid",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Picture removed"
           }
         }
       }
@@ -8457,56 +8917,6 @@
       }
     },
     "/labels/{sessionId}": {
-      "get": {
-        "tags": [
-          "Labels"
-        ],
-        "summary": "List labels",
-        "description": "Get all labels with chat count",
-        "parameters": [
-          {
-            "name": "sessionId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "List of labels",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "labels": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/Label"
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          },
-          "404": {
-            "description": "Session not found"
-          }
-        }
-      },
       "post": {
         "tags": [
           "Labels"
@@ -8578,6 +8988,98 @@
             "description": "Failed to create label"
           }
         }
+      },
+      "put": {
+        "tags": [
+          "Labels"
+        ],
+        "summary": "Update all labels or bulk update",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Labels updated"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Labels"
+        ],
+        "summary": "Delete labels",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Labels deleted"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Labels"
+        ],
+        "summary": "List labels",
+        "description": "Get all labels with chat count",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of labels",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "labels": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Label"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Session not found"
+          }
+        }
       }
     },
     "/labels": {
@@ -8643,6 +9145,42 @@
       }
     },
     "/labels/{sessionId}/{labelId}": {
+      "delete": {
+        "tags": [
+          "Labels"
+        ],
+        "summary": "Delete label",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "labelId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Label deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          }
+        }
+      },
       "put": {
         "tags": [
           "Labels"
@@ -8701,42 +9239,6 @@
                       "$ref": "#/components/schemas/Label"
                     }
                   }
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "Labels"
-        ],
-        "summary": "Delete label",
-        "parameters": [
-          {
-            "name": "sessionId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "labelId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Label deleted",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Success"
                 }
               }
             }
@@ -9025,62 +9527,6 @@
       }
     },
     "/notifications": {
-      "get": {
-        "tags": [
-          "Notifications"
-        ],
-        "summary": "List notifications",
-        "description": "Get the last 50 notifications for the authenticated user",
-        "responses": {
-          "200": {
-            "description": "List of notifications",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "id": {
-                        "type": "string"
-                      },
-                      "userId": {
-                        "type": "string"
-                      },
-                      "title": {
-                        "type": "string"
-                      },
-                      "message": {
-                        "type": "string"
-                      },
-                      "type": {
-                        "type": "string"
-                      },
-                      "href": {
-                        "type": "string",
-                        "nullable": true
-                      },
-                      "read": {
-                        "type": "boolean"
-                      },
-                      "createdAt": {
-                        "type": "string",
-                        "format": "date-time"
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "500": {
-            "description": "Error fetching notifications"
-          }
-        }
-      },
       "post": {
         "tags": [
           "Notifications"
@@ -9164,6 +9610,62 @@
           },
           "500": {
             "description": "Error creating notification"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "List notifications",
+        "description": "Get the last 50 notifications for the authenticated user",
+        "responses": {
+          "200": {
+            "description": "List of notifications",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "userId": {
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "type": {
+                        "type": "string"
+                      },
+                      "href": {
+                        "type": "string",
+                        "nullable": true
+                      },
+                      "read": {
+                        "type": "boolean"
+                      },
+                      "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "description": "Error fetching notifications"
           }
         }
       }
@@ -9254,42 +9756,6 @@
       }
     },
     "/settings/system": {
-      "get": {
-        "tags": [
-          "System"
-        ],
-        "summary": "Get system settings",
-        "responses": {
-          "200": {
-            "description": "System settings",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "type": "string",
-                      "example": "default"
-                    },
-                    "appName": {
-                      "type": "string",
-                      "example": "WA-AKG"
-                    },
-                    "logoUrl": {
-                      "type": "string",
-                      "example": "https://example.com/logo.png"
-                    },
-                    "timezone": {
-                      "type": "string",
-                      "example": "Asia/Jakarta"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
       "post": {
         "tags": [
           "System"
@@ -9350,6 +9816,42 @@
           },
           "500": {
             "description": "Failed to update settings"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "System"
+        ],
+        "summary": "Get system settings",
+        "responses": {
+          "200": {
+            "description": "System settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "example": "default"
+                    },
+                    "appName": {
+                      "type": "string",
+                      "example": "WA-AKG"
+                    },
+                    "logoUrl": {
+                      "type": "string",
+                      "example": "https://example.com/logo.png"
+                    },
+                    "timezone": {
+                      "type": "string",
+                      "example": "Asia/Jakarta"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
