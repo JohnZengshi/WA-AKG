@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import Link from "next/link";
-import { QrCode, Plus } from "lucide-react";
+import { QrCode, Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getMachineId } from "@/lib/machine-id";
 
@@ -12,15 +13,27 @@ type SessionItem = {
     name: string;
     sessionId: string;
     status: string;
+    waJid?: string | null;
     assignedTo?: string | null;
 };
 
 export function DashboardSessionList({ sessions }: { sessions: SessionItem[] }) {
     const [machineId, setMachineId] = useState<string | null>(null);
+    const [search, setSearch] = useState("");
 
     useEffect(() => {
         setMachineId(getMachineId());
     }, []);
+
+    const filtered = useMemo(() => {
+        const q = search.trim().toLowerCase();
+        if (!q) return sessions;
+        return sessions.filter(s =>
+            s.name.toLowerCase().includes(q) ||
+            s.sessionId.toLowerCase().includes(q) ||
+            (s.waJid ?? "").toLowerCase().includes(q)
+        );
+    }, [sessions, search]);
 
     if (sessions.length === 0) {
         return (
@@ -44,8 +57,25 @@ export function DashboardSessionList({ sessions }: { sessions: SessionItem[] }) 
     const hydrated = machineId !== null;
 
     return (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {sessions.map((s) => {
+        <div className="space-y-3">
+            <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search by name, session ID, or WhatsApp JID"
+                    className="pl-9"
+                />
+            </div>
+            {filtered.length === 0 ? (
+                <Card className="border-dashed border-2 border-slate-200 shadow-none">
+                    <CardContent className="py-8 text-center text-sm text-muted-foreground">
+                        No sessions match your search.
+                    </CardContent>
+                </Card>
+            ) : (
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {filtered.map((s) => {
                 const isConnected = s.status === "CONNECTED";
                 const isDisconnected = !isConnected;
                 const isOwned = hydrated ? !s.assignedTo || s.assignedTo === machineId : true;
@@ -73,6 +103,11 @@ export function DashboardSessionList({ sessions }: { sessions: SessionItem[] }) 
                                     <p className="text-xs text-muted-foreground font-mono truncate mt-1">
                                         {s.sessionId}
                                     </p>
+                                    {s.waJid && (
+                                        <p className="text-xs text-primary/70 font-mono truncate mt-1">
+                                            {s.waJid}
+                                        </p>
+                                    )}
                                     {s.assignedTo && (
                                         <p className="text-[10px] text-muted-foreground/60 font-mono truncate mt-1">
                                             Machine: {s.assignedTo.substring(0, 8)}...
@@ -113,6 +148,8 @@ export function DashboardSessionList({ sessions }: { sessions: SessionItem[] }) 
                 }
                 return <div key={s.id}>{card}</div>;
             })}
+                </div>
+            )}
         </div>
     );
 }
