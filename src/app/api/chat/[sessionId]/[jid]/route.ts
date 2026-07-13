@@ -1,7 +1,12 @@
 import { prisma } from "@/lib/prisma";
-import { resolveToPhoneJid, isLidJid } from "@/lib/jid-utils";
+import { ChatService } from "@/modules/whatsapp/chat.service";
 import { NextResponse, NextRequest } from "next/server";
 import { getAuthenticatedUser, canAccessSession } from "@/lib/api-auth";
+
+type GroupParticipant = {
+    id: string;
+    [key: string]: unknown;
+};
 
 export async function GET(
     request: NextRequest,
@@ -34,17 +39,11 @@ export async function GET(
 
         const dbSessionId = session.id;
 
-        const messages = await prisma.message.findMany({
-            where: {
-                sessionId: dbSessionId,
-                remoteJid: decodedJid
-            },
-            orderBy: { timestamp: 'desc' }, // Fetch NEWEST first
-            take: 100
-        });
-
-        // Reverse to show oldest -> newest
-        messages.reverse();
+        const messages = await ChatService.getMessages(
+            dbSessionId,
+            decodedJid,
+            100
+        );
 
         // Enrich with participant info if it's a group
         if (decodedJid.endsWith('@g.us')) {
@@ -59,9 +58,9 @@ export async function GET(
             });
 
             if (group && group.participants) {
-                const parts = group.participants as any[];
+                const parts = group.participants as GroupParticipant[];
 
-                const enrichedMessages = messages.map((msg: any) => {
+                const enrichedMessages = messages.map((msg) => {
                     const sender = msg.senderJid || msg.remoteJid; // Fallback
                     const participant = parts.find(p => p.id === sender);
 
